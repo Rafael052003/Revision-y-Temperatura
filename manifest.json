@@ -1,10 +1,10 @@
 {
-  "name": "Chitré Selecto",
-  "short_name": "Selecto",
+  "short_name": "Chitré Selecto",
+  "name": "Riba Smith - Chitré Selecto",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#1f2937",
-  "theme_color": "#1f2937",
+  "background_color": "#111827",
+  "theme_color": "#111827",
   "icons": [
     {
       "src": "./icons/icon-192x192.png",

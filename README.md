@@ -1,15 +1,3 @@
-# Chitré Selecto (PWA)
+# Chitré Selecto — Restaurado
 
-Este es un proyecto básico de aplicación web progresiva (PWA) para **Chitré Selecto**.
-
-## Archivos principales
-- `index.html`: Página principal (código original ajustado con rutas relativas).
-- `manifest.json`: Configuración del PWA con íconos incluidos.
-- `service-worker.js`: Service Worker para caché offline.
-- `icons/`: Carpeta con íconos en 192x192 y 512x512 px.
-- `favicon.ico`: Ícono para pestañas de navegador.
-
-## Uso en GitHub Pages
-1. Sube todos los archivos a un repositorio en GitHub.
-2. Activa **GitHub Pages** desde la configuración del repositorio.
-3. La app estará disponible en `https://usuario.github.io/repositorio/`.
+Archivos incluidos: index.html (original ajustado), manifest.json, service-worker.js, icons/, favicon.ico
