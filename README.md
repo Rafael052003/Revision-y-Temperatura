@@ -1,3 +1,2 @@
-# Chitré Selecto — Restaurado
-
-Archivos incluidos: index.html (original ajustado), manifest.json, service-worker.js, icons/, favicon.ico
+# Chitré Selecto PWA
+Aplicación instalable de Riba Smith - Chitré Selecto.
