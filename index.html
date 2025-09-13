@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Revision y Temperatura</title>
+    <title>Chitré Selecto</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="manifest" href="/manifest.json">
@@ -379,25 +379,55 @@
                     });
             });
         }
+
+        // Script para el caché del Service Worker (simulado, debe estar en service-worker.js)
+        // **Este es el código que necesitas en tu archivo service-worker.js**
+        /*
+        const CACHE_NAME = 'chitre-selecto-cache-v1';
+        const urlsToCache = [
+            '/',
+            '/index.html',
+            'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css',
+            'https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap',
+            '/manifest.json',
+            // Puedes agregar tus propios archivos de íconos aquí si los tienes
+        ];
+
+        self.addEventListener('install', (event) => {
+            event.waitUntil(
+                caches.open(CACHE_NAME)
+                    .then((cache) => {
+                        console.log('Caché abierta');
+                        return cache.addAll(urlsToCache);
+                    })
+            );
+        });
+
+        self.addEventListener('fetch', (event) => {
+            event.respondWith(
+                caches.match(event.request)
+                    .then((response) => {
+                        if (response) {
+                            return response;
+                        }
+                        return fetch(event.request);
+                    })
+            );
+        });
+        */
         
         let deferredPrompt;
         const installButton = document.getElementById('installButton');
 
         window.addEventListener('beforeinstallprompt', (e) => {
-            // Previene que la mini-barra de información aparezca en el móvil
             e.preventDefault();
-            // Guarda el evento para que se pueda activar más tarde
             deferredPrompt = e;
-            // Muestra el botón de instalación al usuario
             installButton.style.display = 'flex';
         });
 
         installButton.addEventListener('click', () => {
-            // Oculta el botón
             installButton.style.display = 'none';
-            // Muestra el aviso de instalación guardado
             deferredPrompt.prompt();
-            // Espera a que el usuario responda al aviso
             deferredPrompt.userChoice.then((choiceResult) => {
                 if (choiceResult.outcome === 'accepted') {
                     console.log('El usuario aceptó instalar la PWA');
