@@ -331,8 +331,10 @@
             padding: 25px 40px;
         }
         .modal-content h2 { color: var(--primary-color); font-size: 24px; margin-bottom: 10px; text-align: center; }
-        .modal-content p { color: var(--secondary-color); font-size: 14px; margin-bottom: 20px; }
-        .modal-content.large-text p { font-size: 12px; text-align: justify; }
+        .modal-content p, .modal-content li { color: var(--secondary-color); font-size: 14px; line-height: 1.6; }
+        .modal-content p { margin-bottom: 20px; }
+        .modal-content ul { padding-left: 20px; margin-bottom: 20px; }
+        .modal-content li { margin-bottom: 10px; }
         .modal-icon { font-size: 48px; color: var(--danger-color); margin-bottom: 20px; }
         .modal-actions { display: flex; justify-content: space-around; gap: 15px; }
         .modal-actions button { flex: 1; }
@@ -357,6 +359,10 @@
         }
         .footer a:hover {
             color: var(--primary-color);
+        }
+        .footer .divider {
+            color: var(--secondary-color);
+            margin: 0 5px;
         }
 
         /* PDF/Print Styles */
@@ -433,10 +439,6 @@
                 </thead>
                 <tbody id="temperaturas-tbody"></tbody>
             </table>
-            <div class="notes-container">
-                <h3>Notas y Observaciones</h3>
-                <textarea id="temperaturas-notes" placeholder="Agrega aquí cualquier comentario o incidente del turno."></textarea>
-            </div>
         </div>
 
         <div class="table-container" id="revisiones-table-container" style="display: none;">
@@ -454,10 +456,6 @@
                 </thead>
                 <tbody id="revisiones-tbody"></tbody>
             </table>
-            <div class="notes-container">
-                <h3>Notas y Observaciones</h3>
-                <textarea id="revisiones-notes" placeholder="Agrega aquí cualquier comentario o incidente del turno."></textarea>
-            </div>
         </div>
     </div>
 
@@ -496,10 +494,34 @@
         </div>
     </div>
 
+    <div id="privacyModal" class="modal">
+        <div class="modal-content large-text">
+            <span class="close-btn">&times;</span>
+            <h2>Política de Privacidad</h2>
+            <p>
+                Esta Política de Privacidad describe cómo se recopila, utiliza y protege la información en la aplicación "Revisión y Temperatura" para la sucursal R/S Chitré Selecto.
+            </p>
+            <p>
+                <strong>Información Recopilada:</strong> La aplicación registra temperaturas, estados de revisión y notas. Esta información es de uso exclusivo para la gestión interna de la empresa y no incluye datos personales sensibles.
+            </p>
+            <p>
+                <strong>Uso de la Información:</strong> La información recopilada se utiliza únicamente para el monitoreo, control de seguridad y seguimiento interno. No se comparte, vende ni distribuye a terceros externos a la organización.
+            </p>
+            <p>
+                <strong>Protección de Datos:</strong> Se toman medidas de seguridad para proteger los datos contra el acceso no autorizado. Los datos se almacenan de forma local en el dispositivo del usuario para garantizar la confidencialidad.
+            </p>
+            <p>
+                <strong>Cambios en la Política:</strong> Nos reservamos el derecho de modificar esta Política de Privacidad. Se notificará a los usuarios sobre cualquier cambio a través de la propia aplicación.
+            </p>
+        </div>
+    </div>
+
     <footer class="footer">
         <p>
             © 2025 Rafael Ramos LLC. Todos los derechos reservados.
             <a href="#" id="openTermsModal">Términos y Condiciones</a>
+            <span class="divider">|</span>
+            <a href="#" id="openPrivacyModal">Política de Privacidad</a>
         </p>
     </footer>
 
@@ -520,17 +542,11 @@
             const DEFAULT_SECCIONES = ['TEMPERATURAS', 'REVISIONES'];
             const STORAGE_KEY_TEMPERATURAS = 'data_temperaturas';
             const STORAGE_KEY_REVISIONES = 'data_revisiones';
-            const STORAGE_KEY_TEMPERATURAS_NOTES = 'notes_temperaturas';
-            const STORAGE_KEY_REVISIONES_NOTES = 'notes_revisiones';
             
             let dataTemperaturas = JSON.parse(localStorage.getItem(STORAGE_KEY_TEMPERATURAS));
             let dataRevisiones = JSON.parse(localStorage.getItem(STORAGE_KEY_REVISIONES));
-            let notasTemperaturas = localStorage.getItem(STORAGE_KEY_TEMPERATURAS_NOTES) || '';
-            let notasRevisiones = localStorage.getItem(STORAGE_KEY_REVISIONES_NOTES) || '';
 
             const reviewDateInput = document.getElementById('review-date');
-            const temperaturasNotesInput = document.getElementById('temperaturas-notes');
-            const revisionesNotesInput = document.getElementById('revisiones-notes');
 
             const initialTemperaturesData = [
                 { temp: '-20°', nevera: 'NEVERA DE HIELOS' }, { temp: '-23°', nevera: 'HELADERIA 1' },
@@ -580,9 +596,11 @@
             const revisionesTableContainer = document.getElementById('revisiones-table-container');
             const clearModal = document.getElementById('clearModal');
             const termsModal = document.getElementById('termsModal');
+            const privacyModal = document.getElementById('privacyModal');
             const clearModalConfirmBtn = document.getElementById('clearModalConfirmBtn');
             const clearModalCancelBtn = document.getElementById('clearModalCancelBtn');
             const openTermsModalBtn = document.getElementById('openTermsModal');
+            const openPrivacyModalBtn = document.getElementById('openPrivacyModal');
             const allCloseBtns = document.querySelectorAll('.close-btn');
 
             let saveTimer = null;
@@ -591,14 +609,11 @@
                 saveTimer = setTimeout(() => {
                     localStorage.setItem(STORAGE_KEY_TEMPERATURAS, JSON.stringify(dataTemperaturas));
                     localStorage.setItem(STORAGE_KEY_REVISIONES, JSON.stringify(dataRevisiones));
-                    localStorage.setItem(STORAGE_KEY_TEMPERATURAS_NOTES, notasTemperaturas);
-                    localStorage.setItem(STORAGE_KEY_REVISIONES_NOTES, notasRevisiones);
                 }, 300);
             }
 
             function validateTemperature(value) {
                 const num = parseFloat(value);
-                // Rango de temperatura aceptable: de -30 a 10 grados Celsius
                 return !isNaN(num) && num >= -30 && num <= 10;
             }
 
@@ -608,24 +623,19 @@
                 let tbody;
                 let tableContainer;
                 let title;
-                let notesInput;
 
                 if (seccionActiva === 'TEMPERATURAS') {
                     dataToRender = dataTemperaturas;
                     tbody = document.getElementById('temperaturas-tbody');
                     tableContainer = temperaturasTableContainer;
                     title = 'REVISIÓN DE TEMPERATURAS';
-                    notesInput = temperaturasNotesInput;
                     revisionesTableContainer.style.display = 'none';
-                    temperaturasNotesInput.value = notasTemperaturas;
                 } else {
                     dataToRender = dataRevisiones;
                     tbody = document.getElementById('revisiones-tbody');
                     tableContainer = revisionesTableContainer;
                     title = 'REVISIÓN DE INSTALACIONES';
-                    notesInput = revisionesNotesInput;
                     temperaturasTableContainer.style.display = 'none';
-                    revisionesNotesInput.value = notasRevisiones;
                 }
 
                 mainTitle.textContent = title;
@@ -665,7 +675,6 @@
                             }
 
                             input.addEventListener('input', handleInput);
-                            // Initial check on render
                             handleInput();
                         });
                     } else {
@@ -687,15 +696,6 @@
                         });
                     }
                     tbody.appendChild(tr);
-                });
-
-                notesInput.addEventListener('input', () => {
-                    if (seccionActiva === 'TEMPERATURAS') {
-                        notasTemperaturas = temperaturasNotesInput.value.trim();
-                    } else {
-                        notasRevisiones = revisionesNotesInput.value.trim();
-                    }
-                    saveAndNotify();
                 });
             }
             
@@ -719,10 +719,8 @@
             clearModalConfirmBtn.onclick = () => {
                 if (seccionActiva === 'TEMPERATURAS') {
                     dataTemperaturas = dataTemperaturas.map(item => ({ ...item, t2200: '', t0000: '', t0200: '', t0400: '' }));
-                    notasTemperaturas = '';
                 } else {
                     dataRevisiones = dataRevisiones.map(item => ({ ...item, rev1: '', obs1: '', rev2: '', obs2: '', rev3: '', obs3: '' }));
-                    notasRevisiones = '';
                 }
                 saveAndNotify();
                 render();
@@ -737,15 +735,20 @@
                 e.preventDefault();
                 termsModal.style.display = 'flex';
             };
+            
+            openPrivacyModalBtn.onclick = (e) => {
+                e.preventDefault();
+                privacyModal.style.display = 'flex';
+            };
 
             window.onclick = (event) => {
                 if (event.target === clearModal) clearModal.style.display = 'none';
                 if (event.target === termsModal) termsModal.style.display = 'none';
+                if (event.target === privacyModal) privacyModal.style.display = 'none';
             };
 
             btnExport.onclick = () => {
                 if (!dataTemperaturas.length && !dataRevisiones.length) {
-                    // No hay datos para exportar, no se hace nada
                     return;
                 }
                 const today = new Date();
@@ -837,10 +840,6 @@
                             </tr>`;
                     });
                     html += `</tbody></table>
-                    <div class="notes-section">
-                        <h3>Notas y Observaciones</h3>
-                        <p>${notasTemperaturas || 'Sin notas.'}</p>
-                    </div>
                     `;
                 }
                 if (dataRevisiones.length) {
@@ -852,13 +851,13 @@
                     <table>
                         <thead>
                             <tr>
-                                <th>PUERTAS Y/O ÁREAS</th>
-                                <th>REVISIÓN Nº1</th>
-                                <th>OBSERVACIÓN</th>
-                                <th>REVISIÓN Nº2</th>
-                                <th>OBSERVACIÓN</th>
-                                <th>REVISIÓN Nº3</th>
-                                <th>OBSERVACIÓN</th>
+                                <th style="width: 25%;">PUERTAS Y/O ÁREAS</th>
+                                <th style="width: 10%;">REVISIÓN Nº1</th>
+                                <th style="width: 20%;">OBSERVACIÓN</th>
+                                <th style="width: 10%;">REVISIÓN Nº2</th>
+                                <th style="width: 20%;">OBSERVACIÓN</th>
+                                <th style="width: 15%;">REVISIÓN Nº3</th>
+                                <th style="width: 20%;">OBSERVACIÓN</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -876,10 +875,6 @@
                             </tr>`;
                     });
                     html += `</tbody></table>
-                    <div class="notes-section">
-                        <h3>Notas y Observaciones</h3>
-                        <p>${notasRevisiones || 'Sin notas.'}</p>
-                    </div>
                     `;
                 }
                 html += `<div class="pdf-footer">Powered by Rafael Ramos</div></body></html>`;
