@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Revisión y Temperatura</title>
+    <title>Revision y Temperatura</title>
     <link rel="manifest" href="manifest.json">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -53,8 +53,8 @@
         
         /* Mobile Specific Adjustments */
         @media (max-width: 600px) {
-            .title-group h1 { font-size: 10px; }
-            .title-group h2 { font-size: 10px; }
+            .title-group h1 { font-size: 18px; }
+            .title-group h2 { font-size: 14px; }
             #main-title { font-size: 16px; margin-top: 10px; }
             .action-btn { font-size: 12px; padding: 10px 15px; }
             .chip { font-size: 12px; padding: 8px 12px; }
@@ -63,11 +63,12 @@
             .header-row label { font-size: 12px; }
             .header-row input { font-size: 14px; padding: 10px 12px; }
             .hamburger-menu { top: 20px; left: 20px; font-size: 24px; display: block; }
-
+            
             /* Splash Screen Title Adjustment for mobile */
-            #splash h2 { font-size: 10px; } /* Even smaller font for splash title on mobile */
+            /* Se ajusta el tamaño de la fuente para que quepan en una línea */
+            #splash h2 { font-size: 18px; }
         }
-
+        
         /* Splash Screen */
         #splash {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -75,8 +76,10 @@
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             z-index: 9999;
             transition: opacity 0.7s ease-out;
+            text-align: center; /* Asegura que el texto esté centrado en caso de que ocupe varias líneas */
         }
         #splash img { width: 150px; margin-bottom: 20px; animation: bounceIn 1s ease-out; }
+        /* Se usa un segundo h2 para forzar el salto de línea y centrar el texto correctamente */
         #splash h2 { font-weight: 700; font-size: 32px; margin-bottom: 10px; }
         #splash p { font-size: 14px; opacity: 0.8; }
         @keyframes bounceIn {
@@ -234,14 +237,28 @@
         td {
             cursor: default; /* Default cursor for non-editable cells */
         }
-        td.editable {
-            cursor: text; /* Text cursor for editable cells */
+        
+        /* New style for input within editable cells */
+        td.editable-input {
+            padding: 0;
         }
-        td.editable:focus {
+        td.editable-input input {
+            width: 100%;
+            height: 100%;
+            padding: 15px;
+            border: none;
             outline: none;
+            font-family: var(--font-main);
+            font-size: 14px;
+            text-align: center;
+            background: transparent;
+            color: var(--primary-color);
+        }
+        td.editable-input input:focus {
             background-color: var(--bg-light);
             box-shadow: inset 0 0 0 2px var(--accent-color);
         }
+        
         .main-table tbody tr:hover { background-color: #f5f8fb; }
         .main-table tbody tr:last-child td { border-bottom: none; }
         td.left { text-align: left; }
@@ -305,7 +322,7 @@
         <h2>REVISIÓN Y</h2>
         <h2>TEMPERATURA</h2>
         <p>Powered by Rafael Ramos</p>
-        <p>Versión 2.2</p>
+        <p>Versión 2.0</p>
     </div>
 
     <div class="main-container">
@@ -382,8 +399,6 @@
         </div>
 
     </div>
-
-    <div id="toast" class="toast-container"></div>
 
     <div id="clearModal" class="modal">
         <div class="modal-content">
@@ -462,7 +477,6 @@
             const chipsEl = document.getElementById('chips');
             const btnExport = document.getElementById('btnExport');
             const btnClear = document.getElementById('btnClear');
-            const toastContainer = document.getElementById('toast');
             const mainTitle = document.getElementById('main-title');
             const temperaturasTableContainer = document.getElementById('temperaturas-table-container');
             const revisionesTableContainer = document.getElementById('revisiones-table-container');
@@ -477,20 +491,7 @@
                 saveTimer = setTimeout(() => {
                     localStorage.setItem(STORAGE_KEY_TEMPERATURAS, JSON.stringify(dataTemperaturas));
                     localStorage.setItem(STORAGE_KEY_REVISIONES, JSON.stringify(dataRevisiones));
-                    showToast('Guardado automáticamente', 'success');
                 }, 300);
-            }
-
-            function showToast(msg, type = 'success') {
-                const t = document.createElement('div');
-                t.className = `toast ${type}`;
-                t.textContent = msg;
-                toastContainer.appendChild(t);
-                setTimeout(() => {
-                    t.style.opacity = '0';
-                    t.style.transform = 'translateY(20px)';
-                    setTimeout(() => t.remove(), 500);
-                }, 2000);
             }
 
             function render() {
@@ -529,11 +530,18 @@
                         tr.innerHTML = `
                             <td data-field="temp">${item.temp || ''}</td>
                             <td class="left product-sensitive">${item.nevera || ''}</td>
-                            <td class="editable" contenteditable="true" data-field="t2200">${item.t2200 || ''}</td>
-                            <td class="editable" contenteditable="true" data-field="t0000">${item.t0000 || ''}</td>
-                            <td class="editable" contenteditable="true" data-field="t0200">${item.t0200 || ''}</td>
-                            <td class="editable" contenteditable="true" data-field="t0400">${item.t0400 || ''}</td>
+                            <td class="editable-input"><input type="text" inputmode="numeric" pattern="[0-9]*" data-field="t2200" value="${item.t2200 || ''}"></td>
+                            <td class="editable-input"><input type="text" inputmode="numeric" pattern="[0-9]*" data-field="t0000" value="${item.t0000 || ''}"></td>
+                            <td class="editable-input"><input type="text" inputmode="numeric" pattern="[0-9]*" data-field="t0200" value="${item.t0200 || ''}"></td>
+                            <td class="editable-input"><input type="text" inputmode="numeric" pattern="[0-9]*" data-field="t0400" value="${item.t0400 || ''}"></td>
                         `;
+                        tr.querySelectorAll('td.editable-input input').forEach(input => {
+                            input.addEventListener('blur', () => {
+                                const field = input.dataset.field;
+                                dataToRender[index][field] = input.value.trim();
+                                saveAndNotify();
+                            });
+                        });
                     } else {
                         tr.innerHTML = `
                             <td data-field="area">${item.area || ''}</td>
@@ -544,15 +552,14 @@
                             <td class="editable" contenteditable="true" data-field="rev3">${item.rev3 || ''}</td>
                             <td class="editable" contenteditable="true" data-field="obs3">${item.obs3 || ''}</td>
                         `;
-                    }
-                    tr.querySelectorAll('td.editable').forEach(td => {
-                        td.addEventListener('blur', () => {
-                            const field = td.dataset.field;
-                            dataToRender[index][field] = td.innerText.trim();
-                            saveAndNotify();
+                        tr.querySelectorAll('td.editable').forEach(td => {
+                            td.addEventListener('blur', () => {
+                                const field = td.dataset.field;
+                                dataToRender[index][field] = td.innerText.trim();
+                                saveAndNotify();
+                            });
                         });
-                    });
-
+                    }
                     tbody.appendChild(tr);
                 });
             }
@@ -582,7 +589,6 @@
                 }
                 saveAndNotify();
                 render();
-                showToast('Horarios borrados.', 'success');
                 clearModal.style.display = 'none';
             };
             clearModalCancelBtn.onclick = () => { clearModal.style.display = 'none'; };
@@ -595,7 +601,7 @@
 
             btnExport.onclick = () => {
                 if (!dataTemperaturas.length && !dataRevisiones.length) {
-                    showToast('No hay datos para exportar', 'warning');
+                    // No hay datos para exportar, no se hace nada
                     return;
                 }
                 const today = new Date();
@@ -617,7 +623,7 @@
                 let html = `
                 <html>
                 <head>
-                    <title>Reporte Riba Smith</title>
+                    <title>Reporte</title>
                     <style>
                         body { font-family: 'Poppins', sans-serif; margin: 30px; color: #111; }
                         h1, h2, h3 { margin: 5px 0; text-align: center; }
@@ -648,7 +654,7 @@
                     <div class="pdf-header">
                         <h1>GRUPO RIBA SMITH</h1>
                         <h2>R/S CHITRÉ SELECTO</h2>
-                        <h1>REVISIÓN DE INSTALACIONES Y TEMPERATURAS</h1>
+                        <h2>REVISIÓN DE INSTALACIONES Y TEMPERATURAS</h2>
                     </div>
                     <div class="pdf-header-details">
                         <div>Fecha de Revisión: ${formattedReviewDate}</div>
