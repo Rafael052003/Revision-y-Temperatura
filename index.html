@@ -593,7 +593,7 @@
                 
                 const reviewDateInput = document.getElementById('review-date').value;
                 const formattedReviewDate = reviewDateInput ? 
-                    new Date(reviewDateInput).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : formattedToday;
+                    new Date(reviewDateInput.replace(/-/g, '\/')).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : formattedToday;
 
                 const vespertinoNombre = document.getElementById('vespertino-nombre').value.trim();
                 const nocturnoNombre = document.getElementById('nocturno-nombre').value.trim();
@@ -754,7 +754,7 @@
                     } catch (error) {
                         showToast('Error al procesar el archivo.', 'error');
                     } finally { event.target.value = ''; }
-                };
+                    };
                 reader.readAsText(file);
             };
 
