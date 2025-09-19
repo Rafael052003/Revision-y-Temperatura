@@ -19,7 +19,7 @@
         #splash img { width: 120px; margin-bottom: 20px; }
         #splash h2 { font-weight: bold; font-size: 24px; margin-bottom: 10px; }
         #splash p { margin-top: 5px; font-size: 14px; opacity: 0.9; }
-        header { text-align: center; margin-bottom: 24px; display: flex; align-items: center; position: relative; padding-left: 60px; padding-right: 20px; }
+        header { text-align: center; margin-bottom: 24px; display: flex; align-items: center; position: relative; padding-left: 20px; padding-right: 20px; }
         .title-group { flex-grow: 1; display: flex; flex-direction: column; align-items: center; }
         .title-group h1 { font-size: 24px; font-weight: 700; margin: 2px 0; color: var(--primary-color); text-transform: uppercase; }
         @media (max-width: 600px) { .title-group h1 { font-size: 18px; } }
@@ -59,7 +59,8 @@
         .action-btn.green:hover { background: #08664b; }
         .action-btn.blue { background: #3b82f6; }
         .action-btn.blue:hover { background: #2563eb; }
-        #installButton { display: none; }
+        #btnAdd, #btnDeleteRow { display: none; }
+        #installButton, #btnExportJson_menu, #btnImportJson_menu { display: none; }
         .chips { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
         .chip { padding: 8px 16px; border-radius: 999px; cursor: pointer; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: all 0.2s ease-in-out; font-size: 14px; }
         .chip.active { background: var(--primary-color); color: white; }
@@ -82,7 +83,7 @@
         .toast.error { background-color: var(--accent-red); }
         @keyframes slideIn { from{opacity:0;transform:translateY(20px);} to{opacity:1;transform:translateY(0);} }
         /* Estilos del nuevo submenú */
-        .side-menu { position: fixed; top: 0; left: -300px; width: 280px; height: 100%; background: var(--primary-color); color: white; padding: 20px; z-index: 1001; box-shadow: 2px 0 5px rgba(0,0,0,0.5); transition: left 0.3s ease-in-out; display: flex; flex-direction: column; gap: 10px; }
+        .side-menu { position: fixed; top: 0; left: -320px; width: 280px; height: 100%; background: var(--primary-color); color: white; padding: 20px; z-index: 1001; box-shadow: 2px 0 5px rgba(0,0,0,0.5); transition: left 0.3s ease-in-out; display: flex; flex-direction: column; gap: 10px; }
         .side-menu.open { left: 0; }
         .side-menu .action-btn { width: 100%; justify-content: flex-start; margin: 0; }
         .hamburger-btn { font-size: 24px; cursor: pointer; color: var(--primary-color); padding: 10px; position: absolute; left: 0; top: 50%; transform: translateY(-50%); }
@@ -119,13 +120,17 @@
                 font-size: 12pt;
                 font-weight: bold;
             }
+            .pdf-header-details div {
+                margin-bottom: 10px;
+            }
             .pdf-section-title { text-align: center; font-size: 16pt; font-weight: 700; margin-top: 20px; text-transform: uppercase;}
-            .main-table { border-collapse: collapse; margin: 10px auto; font-size: 12pt; table-layout: fixed; width: 90%; }
+            .main-table { border-collapse: collapse; margin: 15px auto; font-size: 12pt; table-layout: fixed; width: 90%; }
             th, td { border: 1px solid #333; padding: 8px; text-align: center; }
             th { background: #f0f0f0; font-weight: bold; }
             .increased { background-color: #d4edda !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             .decreased { background-color: #f8d7da !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            .pdf-footer { position: fixed; bottom: 20px; width: 100%; text-align: center; font-size: 16pt; font-weight: bold; color: #666; }
+            .page-break { page-break-before: always; }
+            .pdf-footer { text-align: center; font-size: 16pt; font-weight: bold; color: #666; margin-top: 20px; position: relative; }
             /* Anchos de columna específicos para cada tabla en PDF */
             #temperaturas-tabla th:nth-child(1), #temperaturas-tabla td:nth-child(1) { width: 10%; }
             #temperaturas-tabla th:nth-child(2), #temperaturas-tabla td:nth-child(2) { width: 40%; text-align: left; }
@@ -160,7 +165,6 @@
 
     <div class="main-content container">
         <header>
-            <div id="hamburgerBtn" class="hamburger-btn">☰</div>
             <div class="title-group">
                 <h1>GRUPO RIBA SMITH</h1>
                 <h1>R/S CHITRÉ SELECTO</h1>
@@ -754,10 +758,12 @@
                     } catch (error) {
                         showToast('Error al procesar el archivo.', 'error');
                     } finally { event.target.value = ''; }
-                    };
+                };
                 reader.readAsText(file);
             };
 
+            // Se elimina la lógica para abrir el menú lateral
+            /*
             hamburgerBtn.addEventListener('click', () => {
                 sideMenu.classList.toggle('open');
                 overlay.classList.toggle('active');
@@ -766,7 +772,7 @@
                 sideMenu.classList.remove('open');
                 overlay.classList.remove('active');
             });
-
+            */
             window.addEventListener("load", () => {
                 setTimeout(() => { document.getElementById("splash").style.opacity = "0"; }, 1500);
                 setTimeout(() => { document.getElementById("splash").style.display = "none"; }, 2000);
