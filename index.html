@@ -105,7 +105,7 @@
         @media print {
             @page { margin: 10mm; }
             body { padding: 0; font-family: 'Poppins', sans-serif; font-size: 12pt; }
-            .container, header, .controls-container, .chips, .actions, .hamburger-btn, .side-menu, .overlay, .toast-container, .modal, .modal-content, .print-btn, .header-info { display: none; }
+            .container, header, .controls-container, .chips, .actions, .hamburger-btn, .side-menu, .overlay, .toast-container, .modal, .modal-content, .print-btn { display: none; }
             .printable-content { display: block !important; padding: 0; }
             .page-break { page-break-before: always; }
             .pdf-header { text-align: center; margin-bottom: 20px; }
@@ -147,7 +147,7 @@
         <img src="icon-192.png" alt="Logo">
         <h2>REVISIÓN Y TEMPERATURA</h2>
         <p>Powered by Rafael Ramos</p>
-        <p>Versión 2.1</p>
+        <p>Versión 2.2</p>
     </div>
 
     <div id="sideMenu" class="side-menu">
@@ -169,6 +169,10 @@
         </header>
 
         <div class="header-info">
+            <div class="header-row">
+                <label for="review-date">Fecha de Revisión:</label>
+                <input type="date" id="review-date">
+            </div>
             <div class="header-row">
                 <label for="vespertino-nombre">Revisión Vespertina:</label>
                 <input type="text" id="vespertino-nombre" placeholder="Nombre (turno vespertino)">
@@ -585,7 +589,12 @@
                 const day = String(today.getDate()).padStart(2, '0');
                 const month = String(today.getMonth() + 1).padStart(2, '0');
                 const year = today.getFullYear();
-                const formattedDate = `${day}/${month}/${year}`;
+                const formattedToday = `${day}/${month}/${year}`;
+                
+                const reviewDateInput = document.getElementById('review-date').value;
+                const formattedReviewDate = reviewDateInput ? 
+                    new Date(reviewDateInput).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : formattedToday;
+
                 const vespertinoNombre = document.getElementById('vespertino-nombre').value.trim();
                 const nocturnoNombre = document.getElementById('nocturno-nombre').value.trim();
 
@@ -601,11 +610,15 @@
                         .pdf-header p { font-size: 16pt; font-weight: bold; margin-top: 5px; }
                         .pdf-header-details {
                             display: flex;
+                            flex-wrap: wrap;
                             justify-content: space-between;
                             width: 90%;
                             margin: 0 auto 20px auto;
                             font-size: 12pt;
                             font-weight: bold;
+                        }
+                        .pdf-header-details div {
+                            margin-bottom: 10px;
                         }
                         .pdf-section-title { margin-top: 25px; font-size: 16pt; font-weight: 700; text-align: center; text-transform: uppercase; }
                         table { width: 90%; border-collapse: collapse; margin: 15px auto; font-size: 12pt; table-layout: fixed; }
@@ -622,9 +635,9 @@
                         <h1>GRUPO RIBA SMITH</h1>
                         <h2>R/S CHITRÉ SELECTO</h2>
                         <h1>REVISIÓN DE INSTALACIONES Y TEMPERATURAS</h1>
-                        <p>Fecha de exportación: ${formattedDate}</p>
                     </div>
                     <div class="pdf-header-details">
+                        <div>Fecha de Revisión: ${formattedReviewDate}</div>
                         <div>Revisión Vespertina: ${vespertinoNombre || "________________"}</div>
                         <div>Revisión Nocturna: ${nocturnoNombre || "________________"}</div>
                     </div>
