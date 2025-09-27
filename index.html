@@ -801,8 +801,24 @@
                             margin-bottom: 10px;
                         }
                         .pdf-section-title { margin-top: 25px; font-size: 16pt; font-weight: 700; text-align: center; text-transform: uppercase; }
-                        table { width: 90%; border-collapse: collapse; margin: 15px auto; font-size: 12pt; table-layout: fixed; }
-                        th, td { border: 1px solid #333; padding: 8px; text-align: center; }
+                        
+                        /* INICIO DE CORRECCIÓN DE TABLAS */
+                        table { 
+                            width: 90%; 
+                            border-collapse: collapse; /* Mantiene un solo borde limpio */
+                            border-spacing: 0;        /* Elimina el espacio entre celdas */
+                            margin: 15px auto; 
+                            font-size: 12pt; 
+                            table-layout: fixed; 
+                            border: 1px solid #333; /* Agrega un borde exterior limpio a la tabla */
+                        }
+                        th, td { 
+                            border: 1px solid #333; 
+                            padding: 8px; 
+                            text-align: center; 
+                        }
+                        /* FIN DE CORRECCIÓN DE TABLAS */
+
                         th { background: #f0f0f0; font-weight: bold; }
                         .notes-section { width: 90%; margin: 20px auto; font-size: 12pt; }
                         .notes-section h3 { font-size: 14pt; font-weight: 600; text-align: left; }
@@ -879,7 +895,6 @@
                                 <td style="text-align: left;">${d.area || ""}</td>
                                 <td>${d.rev1 || ""}</td>
                                 <td>${d.obs1 || ""}</td>
-                                <td>${d.rev2 || ""}</td>
                                 <td>${d.obs2 || ""}</td>
                                 <td>${d.rev3 || ""}</td>
                                 <td>${d.obs3 || ""}</td>
