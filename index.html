@@ -778,7 +778,7 @@
             };
 
             // **********************************************
-            // ************ FUNCIÓN DE EXPORTACIÓN CON PAGINACIÓN INTELIGENTE ************
+            // ************ FUNCIÓN DE EXPORTACIÓN CON PAGINACIÓN CORREGIDA ************
             // **********************************************
             btnExport.onclick = () => {
                 if (!dataTemperaturas.length && !dataRevisiones.length) {
@@ -791,10 +791,11 @@
                     return;
                 }
 
+                // Show the generating toast
                 showToast('Generando PDF... por favor espere.', 'fas fa-spinner fa-spin', 5000);
 
                 const { jsPDF } = window.jspdf;
-                const doc = new jsPDF('p', 'mm', 'a4'); // 'p': portrait, 'mm': millimeters, 'a4': page size
+                const doc = new jsPDF('p', 'mm', 'a4'); 
 
                 const vespertinoNombre = document.getElementById('vespertino-nombre').value.trim();
                 const nocturnoNombre = document.getElementById('nocturno-nombre').value.trim();
@@ -814,33 +815,19 @@
                 let htmlContent = `
                 <div id="pdf-content-container" style="padding: 20px; background-color: white;">
                     <style>
-                        /* Estilos críticos para PDF (jsPDF usa estos estilos) */
+                        /* Estilos críticos para PDF (se mantiene la lógica avoid-break) */
                         .pdf-header { text-align: center; margin-bottom: 20px; font-family: 'Poppins', sans-serif; }
                         .pdf-header h1 { font-size: 20pt; font-weight: 700; text-transform: uppercase; margin: 0; }
                         .pdf-header h2 { font-size: 14pt; font-weight: 500; margin: 5px 0 10px 0; }
                         .pdf-header-details { font-size: 10pt; display: flex; justify-content: space-between; margin-bottom: 20px; }
                         .pdf-section-title { font-size: 16pt; font-weight: 700; text-align: center; margin-top: 25px; margin-bottom: 10px; text-transform: uppercase; }
                         
-                        /* REGLAS CLAVE PARA LAS TABLAS */
-                        table { 
-                            width: 100%; 
-                            border-collapse: collapse; 
-                            border-spacing: 0;        
-                            font-size: 9pt; 
-                            table-layout: fixed; 
-                            margin-bottom: 20px; /* Espacio después de la tabla */
-                        }
-                        th, td { 
-                            border: 1px solid #333; 
-                            padding: 6px; 
-                            text-align: center; 
-                            vertical-align: middle;
-                            min-height: 15px; /* Usar min-height para mejor compatibilidad */
-                        }
+                        table { width: 100%; border-collapse: collapse; border-spacing: 0; font-size: 9pt; table-layout: fixed; margin-bottom: 20px; }
+                        th, td { border: 1px solid #333; padding: 6px; text-align: center; vertical-align: middle; min-height: 15px; }
                         /* CORRECCIÓN: Usar !important para forzar el color de fondo en th, ya que html2canvas puede perderlo */
                         th { 
                             background: #f0f0f0 !important; 
-                            color: #111 !important; /* Asegurar color de texto */
+                            color: #111 !important; 
                             -webkit-print-color-adjust: exact !important; 
                             color-adjust: exact !important; 
                             font-weight: bold; 
@@ -848,9 +835,12 @@
                         .left-align { text-align: left !important; }
                         .pdf-footer { text-align: center; font-size: 10pt; font-weight: bold; color: #666; margin-top: 30px; }
                         
-                        /* Nueva clase para evitar que se corte el contenido del PDF */
+                        /* CLAVE: Evita cortes dentro de las filas/bloques */
                         .avoid-break {
-                            page-break-inside: avoid;
+                            page-break-inside: avoid !important;
+                        }
+                        .avoid-break-row {
+                            page-break-inside: avoid !important;
                         }
                     </style>
                     <div class="pdf-header">
@@ -858,7 +848,7 @@
                         <h2>R/S CHITRÉ SELECTO</h2>
                         <h2>REVISIÓN DE INSTALACIONES Y TEMPERATURAS</h2>
                     </div>
-                    <div class="pdf-header-details">
+                    <div class="pdf-header-details avoid-break">
                         <div style="width: 33%;">Fecha de Revisión: ${formattedReviewDate}</div>
                         <div style="width: 33%;">Revisión Vespertina: ${vespertinoNombre || "________________"}</div>
                         <div style="width: 33%;">Revisión Nocturna: ${nocturnoNombre || "________________"}</div>
@@ -868,8 +858,7 @@
                 // --- TABLA DE TEMPERATURAS ---
                 if (dataTemperaturas.length) {
                     htmlContent += `<div class="pdf-section-title avoid-break">Temperaturas</div>`;
-                    // Agrupamos la tabla en un div "avoid-break" para ayudar a html2canvas
-                    htmlContent += `<div class="avoid-break"><table>
+                    htmlContent += `<table class="avoid-break">
                         <thead>
                             <tr>
                                 <th style="width: 10%;">TEMP</th>
@@ -883,9 +872,9 @@
                         <tbody>
                     `;
                     dataTemperaturas.forEach(d => {
-                        // CLAVE: Cada fila debe ser un "avoid-break"
+                        // CLAVE: usar avoid-break-row en TR para que la lógica de paginación la detecte
                         htmlContent += `
-                            <tr class="avoid-break"> 
+                            <tr class="avoid-break-row"> 
                                 <td>${d.temp || ""}</td>
                                 <td class="left-align">${d.nevera || ""}</td>
                                 <td>${d.t2200 || ""}</td>
@@ -894,16 +883,14 @@
                                 <td>${d.t0400 || ""}</td>
                             </tr>`;
                     });
-                    htmlContent += `</tbody></table></div>`;
+                    htmlContent += `</tbody></table>`;
                 }
 
                 // --- TABLA DE REVISIONES ---
                 if (dataRevisiones.length) {
-                    // Si ya se agregó la tabla de temperaturas, agrega un salto de página
-                    const breakStyle = dataTemperaturas.length ? 'style="page-break-before: always;"' : '';
-                    htmlContent += `<div class="pdf-section-title avoid-break" ${breakStyle}>Revisiones</div>`;
-                    // Agrupamos la tabla en un div "avoid-break"
-                    htmlContent += `<div class="avoid-break"><table>
+                    // Se elimina el "page-break-before: always;" aquí para que la lógica de paginación lo determine
+                    htmlContent += `<div class="pdf-section-title avoid-break">Revisiones</div>`;
+                    htmlContent += `<table class="avoid-break">
                         <thead>
                             <tr>
                                 <th style="width: 25%;">PUERTAS Y/O ÁREAS</th>
@@ -918,9 +905,8 @@
                         <tbody>
                     `;
                     dataRevisiones.forEach(d => {
-                        // CLAVE: Cada fila debe ser un "avoid-break"
                         htmlContent += `
-                            <tr class="avoid-break"> 
+                            <tr class="avoid-break-row"> 
                                 <td class="left-align">${d.area || ""}</td>
                                 <td>${d.rev1 || ""}</td>
                                 <td>${d.obs1 || ""}</td>
@@ -930,10 +916,10 @@
                                 <td>${d.obs3 || ""}</td>
                             </tr>`;
                     });
-                    htmlContent += `</tbody></table></div>`;
+                    htmlContent += `</tbody></table>`;
                 }
 
-                htmlContent += `<div class="pdf-footer">Powered by Rafael Ramos</div></div>`;
+                htmlContent += `<div class="pdf-footer avoid-break">Powered by Rafael Ramos</div></div>`;
                 
                 // --- 2. PROCESO DE CONVERSIÓN A PDF (CON PAGINACIÓN INTELIGENTE) ---
                 
@@ -951,71 +937,84 @@
                         const imgWidth = 210; // A4 width in mm
                         const pageHeight = 295; // A4 height in mm
                         const imgHeight = canvas.height * imgWidth / canvas.width;
+                        
+                        // Si la imagen es más pequeña que una página, solo la añade y sale
+                        if (imgHeight < pageHeight) {
+                            doc.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+                            document.body.removeChild(tempDiv);
+                            doc.save(`Reporte_RS_Chitre_${formattedReviewDate.replace(/\//g, '-')}.pdf`);
+                            showToast('¡PDF guardado con éxito!', 'fas fa-check-circle', 4000);
+                            return;
+                        }
+
                         let heightLeft = imgHeight;
-                        let position = 0;
+                        let currentOffset = 0; // Posición de corte en píxeles
+
+                        // Obtener la altura de los elementos 'avoid-break' (filas de tabla y títulos)
+                        const elementsToAvoidBreak = tempDiv.querySelectorAll('.pdf-section-title, .avoid-break-row, .pdf-header-details, .pdf-footer');
+                        const breakOffsets = [];
                         
-                        // CLAVE: Obtener la altura de los elementos 'avoid-break' (filas de tabla)
-                        const rows = tempDiv.querySelectorAll('.pdf-section-title, .avoid-break'); // Incluimos títulos para que no se corten
-                        const rowHeights = [];
-                        
-                        rows.forEach(row => {
-                            const rect = row.getBoundingClientRect();
-                            // Guardamos la posición inicial (offset) y la altura de cada elemento
-                            rowHeights.push({
-                                offset: rect.top - tempDiv.getBoundingClientRect().top,
-                                height: rect.height
+                        elementsToAvoidBreak.forEach(el => {
+                            const rect = el.getBoundingClientRect();
+                            // Guardar el offset de inicio y fin relativo al contenedor temporal
+                            breakOffsets.push({
+                                start: rect.top - tempDiv.getBoundingClientRect().top,
+                                end: rect.bottom - tempDiv.getBoundingClientRect().top
                             });
                         });
                         
-                        // Agregar la primera página
-                        doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-                        heightLeft -= pageHeight;
-                        let currentPageOffset = pageHeight;
-
+                        // Loop para agregar páginas
                         while (heightLeft > 0) {
-                            let nextPosition = currentPageOffset;
+                            // Calcula el punto de corte A4 en píxeles a partir de la posición actual
+                            let nextPageCut = currentOffset + (pageHeight * (canvas.width / imgWidth)); 
 
-                            // Buscar el punto de corte más cercano ANTES de que la fila se corte
-                            for(const row of rowHeights) {
-                                // Si el final de la fila es después del corte (row.offset + row.height > nextPosition)
-                                // Y el inicio de la fila está justo antes o en el corte (row.offset < nextPosition)
-                                if (row.offset + row.height > nextPosition && row.offset < nextPosition) {
-                                    // Mover el punto de corte (nextPosition) al inicio de la fila
-                                    nextPosition = row.offset;
-                                    break;
+                            // Ajustar el corte para evitar partir elementos (filas, títulos)
+                            for(const el of breakOffsets) {
+                                // Si el corte cae *dentro* de un elemento a evitar
+                                if (el.start < nextPageCut && el.end > nextPageCut) {
+                                    // Mover el corte al inicio del elemento (nextPageCut se mueve hacia arriba)
+                                    nextPageCut = el.start;
+                                    break; 
                                 }
                             }
-
-                            // Convertir la posición de píxeles a mm para el PDF
-                            const pixelToMmRatio = imgWidth / canvas.width;
-                            // La posición debe ser el valor negativo del offset para subir la imagen en la página
-                            const newPositionMm = -(nextPosition * pixelToMmRatio);
-
-                            // Agregar nueva página y ajustar la imagen
-                            doc.addPage();
-                            doc.addImage(imgData, 'PNG', 0, newPositionMm, imgWidth, imgHeight);
                             
-                            // Ajustar los contadores
-                            currentPageOffset = nextPosition + 1; // Ajustamos por un píxel para asegurar el salto
-                            heightLeft = imgHeight - currentPageOffset;
+                            // Mapear la posición de corte de píxeles a milímetros para jsPDF
+                            const pixelToMmRatio = imgWidth / canvas.width;
+                            let positionMm = -(currentOffset * pixelToMmRatio);
+
+                            // Agregar la imagen al PDF (en la primera iteración o en las siguientes con addPage)
+                            if (currentOffset === 0) {
+                                doc.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+                            } else {
+                                doc.addPage();
+                                doc.addImage(imgData, 'PNG', 0, positionMm, imgWidth, imgHeight);
+                            }
+                            
+                            // Actualizar la posición de corte para la siguiente página
+                            currentOffset = nextPageCut;
+                            // Recalcular la altura restante en mm
+                            heightLeft = imgHeight - (currentOffset * pixelToMmRatio);
+                            
+                            // Condición de salida de seguridad si el corte no avanza o se va más allá del contenido
+                            if (currentOffset >= imgHeight * (canvas.width / imgWidth) || nextPageCut <= currentOffset) break; 
                         }
 
                         // 3. Finalizar y descargar
                         document.body.removeChild(tempDiv);
-                        doc.save(`Revision_y_Temperatura${formattedReviewDate.replace(/\//g, '-')}.pdf`);
+                        doc.save(`Reporte_RS_Chitre_${formattedReviewDate.replace(/\//g, '-')}.pdf`);
                         showToast('¡PDF guardado con éxito!', 'fas fa-check-circle', 4000);
 
                     }).catch(error => {
-                        console.error("Error al generar PDF con jsPDF:", error);
+                        console.error("Error al generar PDF con html2canvas o jsPDF:", error);
                         if(document.body.contains(tempDiv)) {
                            document.body.removeChild(tempDiv);
                         }
-                        showToast('Error: No se pudo crear el PDF.', 'fas fa-times-circle', 5000);
+                        showToast('Error: No se pudo crear el PDF. Intente de nuevo.', 'fas fa-times-circle', 5000);
                     });
-                }, 100); // Pequeño retraso para asegurar que el DOM esté listo
+                }, 100); 
             };
             // **********************************************
-            // ************ FIN DE FUNCIÓN CON PAGINACIÓN INTELIGENTE ************
+            // ************ FIN DE FUNCIÓN CON PAGINACIÓN CORREGIDA ************
             // **********************************************
 
             function getTodayDateFormattedForInput() {
