@@ -265,38 +265,6 @@
         .main-table tbody tr:last-child td { border-bottom: none; }
         td.left { text-align: left; }
         
-        /* Notes section */
-        .notes-container {
-            margin-top: 20px;
-            padding: 20px;
-            background: var(--bg-light);
-            border-radius: 8px;
-            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.05);
-        }
-        .notes-container h3 {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 10px;
-            color: var(--primary-color);
-        }
-        .notes-container textarea {
-            width: 100%;
-            min-height: 100px;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 10px;
-            font-family: var(--font-main);
-            font-size: 14px;
-            resize: vertical;
-            background: var(--bg-card);
-            transition: border-color 0.3s ease;
-        }
-        .notes-container textarea:focus {
-            outline: none;
-            border-color: var(--accent-color);
-            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
-        }
-
         /* Modal */
         .modal { 
             display: none; 
@@ -365,13 +333,36 @@
             margin: 0 5px;
         }
 
-        /* PDF/Print Styles (Solo si usamos window.print como fallback) */
-        @media print {
-            body { background: none; }
-            .main-container, header, .controls-container, .actions, .chips, .toast-container, .modal, .modal-content, .hamburger-menu { display: none; }
-            .pdf-container { display: block !important; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #333; padding: 10px; }
+        /* Toast Notification Styles */
+        #toast-container {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 3000;
+            display: flex;
+            flex-direction: column-reverse;
+            align-items: center;
+        }
+        .toast {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-top: 10px;
+            opacity: 0;
+            transition: opacity 0.3s, transform 0.3s;
+            transform: translateY(20px);
+            font-size: 14px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
         }
     </style>
 </head>
@@ -446,17 +437,19 @@
                     <tr>
                         <th style="width: 25%;">PUERTAS Y/O ÁREAS</th>
                         <th style="width: 10%;">REVISIÓN Nº1</th>
-                        <th style="width: 20%;">OBSERVACIÓN</th>
+                        <th style="width: 15%;">OBSERVACIÓN</th>
                         <th style="width: 10%;">REVISIÓN Nº2</th>
-                        <th style="width: 20%;">OBSERVACIÓN</th>
-                        <th style="width: 15%;">REVISIÓN Nº3</th>
-                        <th style="width: 20%;">OBSERVACIÓN</th>
+                        <th style="width: 15%;">OBSERVACIÓN</th>
+                        <th style="width: 10%;">REVISIÓN Nº3</th>
+                        <th style="width: 15%;">OBSERVACIÓN</th>
                     </tr>
                 </thead>
                 <tbody id="revisiones-tbody"></tbody>
             </table>
         </div>
     </div>
+
+    <div id="toast-container"></div>
 
     <div id="clearModal" class="modal">
         <div class="modal-content">
@@ -621,6 +614,29 @@
                 }, 300);
             }
 
+            // Función para mostrar el Toast (Notificación)
+            function showToast(message, iconClass, duration = 3000) {
+                const toastContainer = document.getElementById('toast-container');
+                const toast = document.createElement('div');
+                toast.className = 'toast';
+                toast.innerHTML = `<i class="${iconClass}"></i> ${message}`;
+                
+                toastContainer.prepend(toast); // Agregar al principio para apilarlos hacia arriba
+
+                // Muestra el toast
+                setTimeout(() => {
+                    toast.classList.add('show');
+                }, 10); // Pequeño retraso para asegurar la animación
+
+                // Oculta y remueve el toast
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    setTimeout(() => {
+                        toast.remove();
+                    }, 300); // Espera que termine la animación de desvanecimiento
+                }, duration);
+            }
+
             function validateTemperature(value) {
                 const num = parseFloat(value);
                 return !isNaN(num) && num >= -30 && num <= 10;
@@ -762,19 +778,20 @@
             };
 
             // **********************************************
-            // ************ FUNCIÓN DE EXPORTACIÓN CON JSDPF ************
+            // ************ FUNCIÓN DE EXPORTACIÓN CON JSDPF (REVISADA) ************
             // **********************************************
             btnExport.onclick = () => {
                 if (!dataTemperaturas.length && !dataRevisiones.length) {
-                    alert('No hay datos para exportar.');
+                    showToast('No hay datos para exportar.', 'fas fa-exclamation-triangle', 3000);
                     return;
                 }
 
-                // Asegúrate de que las librerías jsPDF y html2canvas estén cargadas
                 if (typeof window.jspdf === 'undefined' || typeof window.html2canvas === 'undefined') {
-                    alert('Error: Las librerías de PDF no se han cargado correctamente. Intenta refrescar la página.');
+                    showToast('Error: Librerías de PDF no cargadas.', 'fas fa-times-circle', 4000);
                     return;
                 }
+
+                showToast('Generando PDF... por favor espere.', 'fas fa-spinner fa-spin', 5000);
 
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF('p', 'mm', 'a4'); // 'p': portrait, 'mm': millimeters, 'a4': page size
@@ -798,7 +815,7 @@
                 let htmlContent = `
                 <div id="pdf-content-container" style="padding: 20px; background-color: white;">
                     <style>
-                        /* Estilos críticos para PDF (se debe duplicar aquí para jsPDF) */
+                        /* Estilos críticos para PDF (jsPDF usa estos estilos) */
                         .pdf-header { text-align: center; margin-bottom: 20px; font-family: 'Poppins', sans-serif; }
                         .pdf-header h1 { font-size: 20pt; font-weight: 700; text-transform: uppercase; margin: 0; }
                         .pdf-header h2 { font-size: 14pt; font-weight: 500; margin: 5px 0 10px 0; }
@@ -818,9 +835,16 @@
                             padding: 6px; 
                             text-align: center; 
                             vertical-align: middle;
-                            height: 15px; /* Altura fija para evitar saltos */
+                            height: 15px; 
                         }
-                        th { background: #f0f0f0; font-weight: bold; }
+                        /* CORRECCIÓN: Usar !important para forzar el color de fondo en th, ya que html2canvas puede perderlo */
+                        th { 
+                            background: #f0f0f0 !important; 
+                            color: #111 !important; /* Asegurar color de texto */
+                            -webkit-print-color-adjust: exact !important; 
+                            color-adjust: exact !important; 
+                            font-weight: bold; 
+                        }
                         .left-align { text-align: left !important; }
                         .pdf-footer { text-align: center; font-size: 10pt; font-weight: bold; color: #666; margin-top: 30px; }
                     </style>
@@ -868,9 +892,12 @@
                 }
 
                 // --- TABLA DE REVISIONES ---
+                // Verifica que haya datos de revisiones para incluir la tabla
                 if (dataRevisiones.length) {
+                    // Si ya se agregó la tabla de temperaturas, agrega un salto de página
+                    const breakStyle = dataTemperaturas.length ? 'style="page-break-before: always;"' : '';
                     htmlContent += `
-                    <div class="pdf-section-title" style="page-break-before: always;">Revisiones</div>
+                    <div class="pdf-section-title" ${breakStyle}>Revisiones</div>
                     <table>
                         <thead>
                             <tr>
@@ -886,7 +913,6 @@
                         <tbody>
                     `;
                     dataRevisiones.forEach(d => {
-                        // El ancho de las celdas de datos se hereda del thead y de table-layout: fixed
                         htmlContent += `
                             <tr>
                                 <td class="left-align">${d.area || ""}</td>
@@ -903,76 +929,44 @@
 
                 htmlContent += `<div class="pdf-footer">Powered by Rafael Ramos</div></div>`;
                 
-                // --- 2. USAR JSDPF PARA GENERAR EL ARCHIVO ---
+                // --- 2. PROCESO DE CONVERSIÓN A PDF ---
                 
-                // Crear un contenedor temporal para que html2canvas pueda capturar el estilo
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = htmlContent;
-                tempDiv.style.position = 'absolute'; // Moverlo fuera de la vista
+                tempDiv.style.position = 'absolute'; 
                 tempDiv.style.left = '-9999px';
-                tempDiv.style.width = '210mm'; // Simular ancho de A4
+                tempDiv.style.width = '210mm'; 
                 document.body.appendChild(tempDiv);
 
                 html2canvas(tempDiv, { scale: 3 }).then((canvas) => {
                     const imgData = canvas.toDataURL('image/png');
-                    const imgWidth = 210; // A4 width in mm
-                    const pageHeight = 295; // A4 height in mm
+                    const imgWidth = 210; 
+                    const pageHeight = 295; 
                     const imgHeight = canvas.height * imgWidth / canvas.width;
                     let heightLeft = imgHeight;
                     let position = 0;
 
-                    // Agregar la primera página
+                    // Agregar páginas
                     doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
                     heightLeft -= pageHeight;
 
-                    // Agregar páginas adicionales si es necesario
-                    while (heightLeft >= 0) {
-                        position = heightLeft - pageHeight; // Corregido el cálculo para la siguiente página
+                    while (heightLeft > 0) {
+                        position = heightLeft - imgHeight;
                         doc.addPage();
                         doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
                         heightLeft -= pageHeight;
                     }
 
-                    // Remover el contenedor temporal del DOM
+                    // Finalizar y descargar
                     document.body.removeChild(tempDiv);
-
-                    doc.save(`Reporte_RS_Chitre_${formattedReviewDate.replace(/\//g, '-')}.pdf`);
+                    doc.save(`Revisión_y_Temperatura.${formattedReviewDate.replace(/\//g, '-')}.pdf`);
+                    showToast('¡PDF guardado con éxito!', 'fas fa-check-circle', 4000);
                 }).catch(error => {
                     console.error("Error al generar PDF con jsPDF:", error);
-                    
-                    // Asegurar que el contenedor temporal se remueva si hay un error
                     if(document.body.contains(tempDiv)) {
                        document.body.removeChild(tempDiv);
                     }
-                    
-                    alert('Fallo la generación directa del PDF. Intentando con la impresión nativa del navegador.');
-                    
-                    // FALLBACK: Usar el método anterior (window.print())
-                    const win = window.open("", "_blank");
-                    win.document.write(`
-                        <html>
-                            <head>
-                                <title>Reporte Riba Smith</title>
-                                <style>
-                                    /* Estilos para el fallback de impresión */
-                                    body { font-family: 'Poppins', sans-serif; margin: 30px; color: #111; }
-                                    .pdf-header, .pdf-header h1, .pdf-header h2 { text-align: center; }
-                                    table { width: 90%; border-collapse: collapse; border-spacing: 0; margin: 15px auto; font-size: 12pt; table-layout: fixed; border: 1px solid #333; }
-                                    th, td { border: 1px solid #333; padding: 8px; text-align: center; vertical-align: top; }
-                                    th { background: #f0f0f0; font-weight: bold; }
-                                    .left-align { text-align: left !important; }
-                                    .pdf-footer { text-align: center; font-size: 16pt; font-weight: bold; color: #666; margin-top: 20px; }
-                                    .page-break { page-break-before: always; }
-                                </style>
-                            </head>
-                            <body>
-                                ${htmlContent.replace(/<style\b[^>]*>[\s\S]*?<\/style>/i, '')}
-                            </body>
-                        </html>
-                    `);
-                    win.document.close();
-                    win.focus();
-                    setTimeout(() => win.print(), 500);
+                    showToast('Error: No se pudo crear el PDF.', 'fas fa-times-circle', 5000);
                 });
             };
             // **********************************************
