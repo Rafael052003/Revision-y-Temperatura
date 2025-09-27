@@ -299,7 +299,7 @@
 
         /* Modal */
         .modal { 
-            display: none; /* Corregido: se oculta por defecto */
+            display: none; 
             position: fixed; 
             z-index: 2000; 
             left: 0; 
@@ -365,7 +365,7 @@
             margin: 0 5px;
         }
 
-        /* PDF/Print Styles */
+        /* PDF/Print Styles (Solo si usamos window.print como fallback) */
         @media print {
             body { background: none; }
             .main-container, header, .controls-container, .actions, .chips, .toast-container, .modal, .modal-content, .hamburger-menu { display: none; }
@@ -524,6 +524,9 @@
         </p>
     </footer>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
@@ -612,7 +615,7 @@
                 saveTimer = setTimeout(() => {
                     localStorage.setItem(STORAGE_KEY_TEMPERATURAS, JSON.stringify(dataTemperaturas));
                     localStorage.setItem(STORAGE_KEY_REVISIONES, JSON.stringify(dataRevisiones));
-                    // Nuevo: Guarda los nombres de las revisiones
+                    // Guarda los nombres de las revisiones
                     localStorage.setItem(STORAGE_KEY_VESPERTINO, vespertinoNombreInput.value);
                     localStorage.setItem(STORAGE_KEY_NOCTURNO, nocturnoNombreInput.value);
                 }, 300);
@@ -728,7 +731,7 @@
                 } else {
                     dataRevisiones = dataRevisiones.map(item => ({ ...item, rev1: '', obs1: '', rev2: '', obs2: '', rev3: '', obs3: '' }));
                 }
-                // Nuevo: Borra los nombres de los campos
+                // Borra los nombres de los campos
                 vespertinoNombreInput.value = '';
                 nocturnoNombreInput.value = '';
                 localStorage.removeItem(STORAGE_KEY_VESPERTINO);
@@ -758,89 +761,84 @@
                 if (event.target === privacyModal) privacyModal.style.display = 'none';
             };
 
+            // **********************************************
+            // ************ FUNCIÓN DE EXPORTACIÓN CON JSDPF ************
+            // **********************************************
             btnExport.onclick = () => {
                 if (!dataTemperaturas.length && !dataRevisiones.length) {
+                    alert('No hay datos para exportar.');
                     return;
                 }
+
+                // Asegúrate de que las librerías jsPDF y html2canvas estén cargadas
+                if (typeof window.jspdf === 'undefined' || typeof window.html2canvas === 'undefined') {
+                    alert('Error: Las librerías de PDF no se han cargado correctamente. Intenta refrescar la página.');
+                    return;
+                }
+
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF('p', 'mm', 'a4'); // 'p': portrait, 'mm': millimeters, 'a4': page size
+
+                const vespertinoNombre = document.getElementById('vespertino-nombre').value.trim();
+                const nocturnoNombre = document.getElementById('nocturno-nombre').value.trim();
+
                 const today = new Date();
                 const day = String(today.getDate()).padStart(2, '0');
                 const month = String(today.getMonth() + 1).padStart(2, '0');
                 const year = today.getFullYear();
-                const formattedToday = `${day}/${month}/${year}`;
-
+                
                 const reviewDateValue = reviewDateInput.value;
-                let formattedReviewDate = formattedToday;
+                let formattedReviewDate = `${day}/${month}/${year}`;
                 if (reviewDateValue) {
                     const [y, m, d] = reviewDateValue.split('-');
                     formattedReviewDate = `${d}/${m}/${y}`;
                 }
 
-                const vespertinoNombre = document.getElementById('vespertino-nombre').value.trim();
-                const nocturnoNombre = document.getElementById('nocturno-nombre').value.trim();
-
-                let html = `
-                <html>
-                <head>
-                    <title>Reporte Riba Smith</title>
+                // --- 1. GENERAR EL HTML COMPLETO PARA JAVASCRIPT ---
+                let htmlContent = `
+                <div id="pdf-content-container" style="padding: 20px; background-color: white;">
                     <style>
-                        body { font-family: 'Poppins', sans-serif; margin: 30px; color: #111; }
-                        h1, h2, h3 { margin: 5px 0; text-align: center; }
-                        .pdf-header { text-align: center; margin-bottom: 20px; }
-                        .pdf-header h1 { font-size: 20pt; font-weight: 700; text-transform: uppercase; }
-                        .pdf-header p { font-size: 16pt; font-weight: bold; margin-top: 5px; }
-                        .pdf-header-details {
-                            display: flex;
-                            flex-wrap: wrap;
-                            justify-content: space-between;
-                            width: 90%;
-                            margin: 0 auto 20px auto;
-                            font-size: 12pt;
-                            font-weight: bold;
-                        }
-                        .pdf-header-details div {
-                            margin-bottom: 10px;
-                        }
-                        .pdf-section-title { margin-top: 25px; font-size: 16pt; font-weight: 700; text-align: center; text-transform: uppercase; }
+                        /* Estilos críticos para PDF (se debe duplicar aquí para jsPDF) */
+                        .pdf-header { text-align: center; margin-bottom: 20px; font-family: 'Poppins', sans-serif; }
+                        .pdf-header h1 { font-size: 20pt; font-weight: 700; text-transform: uppercase; margin: 0; }
+                        .pdf-header h2 { font-size: 14pt; font-weight: 500; margin: 5px 0 10px 0; }
+                        .pdf-header-details { font-size: 10pt; display: flex; justify-content: space-between; margin-bottom: 20px; }
+                        .pdf-section-title { font-size: 16pt; font-weight: 700; text-align: center; margin-top: 25px; margin-bottom: 10px; text-transform: uppercase; }
                         
-                        /* AJUSTES PARA BORDES Y ANCHOS DE PDF */
+                        /* REGLAS CLAVE PARA LAS TABLAS */
                         table { 
-                            width: 90%; 
+                            width: 100%; 
                             border-collapse: collapse; 
                             border-spacing: 0;        
-                            margin: 15px auto; 
-                            font-size: 12pt; 
+                            font-size: 9pt; 
                             table-layout: fixed; 
-                            border: 1px solid #333; 
                         }
                         th, td { 
                             border: 1px solid #333; 
-                            padding: 8px; 
+                            padding: 6px; 
                             text-align: center; 
-                            vertical-align: top; /* Asegura alineación superior */
+                            vertical-align: middle;
+                            height: 15px; /* Altura fija para evitar saltos */
                         }
-                        
                         th { background: #f0f0f0; font-weight: bold; }
-                        .notes-section { width: 90%; margin: 20px auto; font-size: 12pt; }
-                        .notes-section h3 { font-size: 14pt; font-weight: 600; text-align: left; }
-                        .notes-section p { white-space: pre-wrap; text-align: justify; }
-                        .page-break { page-break-before: always; }
-                        .pdf-footer { text-align: center; font-size: 16pt; font-weight: bold; color: #666; margin-top: 20px; position: relative; }
+                        .left-align { text-align: left !important; }
+                        .pdf-footer { text-align: center; font-size: 10pt; font-weight: bold; color: #666; margin-top: 30px; }
                     </style>
-                </head>
-                <body>
                     <div class="pdf-header">
                         <h1>GRUPO RIBA SMITH</h1>
                         <h2>R/S CHITRÉ SELECTO</h2>
                         <h2>REVISIÓN DE INSTALACIONES Y TEMPERATURAS</h2>
                     </div>
                     <div class="pdf-header-details">
-                        <div>Fecha de Revisión: ${formattedReviewDate}</div>
-                        <div>Revisión Vespertina: ${vespertinoNombre || "________________"}</div>
-                        <div>Revisión Nocturna: ${nocturnoNombre || "________________"}</div>
+                        <div style="width: 33%;">Fecha de Revisión: ${formattedReviewDate}</div>
+                        <div style="width: 33%;">Revisión Vespertina: ${vespertinoNombre || "________________"}</div>
+                        <div style="width: 33%;">Revisión Nocturna: ${nocturnoNombre || "________________"}</div>
                     </div>
                 `;
+
+                // --- TABLA DE TEMPERATURAS ---
                 if (dataTemperaturas.length) {
-                    html += `
+                    htmlContent += `
                     <div class="pdf-section-title">Temperaturas</div>
                     <table>
                         <thead>
@@ -856,39 +854,42 @@
                         <tbody>
                     `;
                     dataTemperaturas.forEach(d => {
-                        html += `
+                        htmlContent += `
                             <tr>
                                 <td>${d.temp || ""}</td>
-                                <td style="text-align: left;">${d.nevera || ""}</td>
+                                <td class="left-align">${d.nevera || ""}</td>
                                 <td>${d.t2200 || ""}</td>
                                 <td>${d.t0000 || ""}</td>
                                 <td>${d.t0200 || ""}</td>
                                 <td>${d.t0400 || ""}</td>
                             </tr>`;
                     });
-                    html += `</tbody></table>
-                    `;
+                    htmlContent += `</tbody></table>`;
                 }
+
+                // --- TABLA DE REVISIONES ---
                 if (dataRevisiones.length) {
-                    if (dataTemperaturas.length) {
-                        html += `<div class="page-break"></div>`;
-                    }
-                    html += `
-                    <div class="pdf-section-title">Revisiones</div>
+                    htmlContent += `
+                    <div class="pdf-section-title" style="page-break-before: always;">Revisiones</div>
                     <table>
                         <thead>
                             <tr>
                                 <th style="width: 25%;">PUERTAS Y/O ÁREAS</th>
                                 <th style="width: 10%;">REVISIÓN Nº1</th>
-                                <th style="width: 15%;">OBSERVACIÓN</th> <th style="width: 10%;">REVISIÓN Nº2</th>
-                                <th style="width: 15%;">OBSERVACIÓN</th> <th style="width: 10%;">REVISIÓN Nº3</th> <th style="width: 15%;">OBSERVACIÓN</th> </tr>
+                                <th style="width: 15%;">OBSERVACIÓN</th> 
+                                <th style="width: 10%;">REVISIÓN Nº2</th>
+                                <th style="width: 15%;">OBSERVACIÓN</th> 
+                                <th style="width: 10%;">REVISIÓN Nº3</th> 
+                                <th style="width: 15%;">OBSERVACIÓN</th>
+                            </tr>
                         </thead>
                         <tbody>
                     `;
                     dataRevisiones.forEach(d => {
-                        html += `
+                        // El ancho de las celdas de datos se hereda del thead y de table-layout: fixed
+                        htmlContent += `
                             <tr>
-                                <td style="text-align: left;">${d.area || ""}</td>
+                                <td class="left-align">${d.area || ""}</td>
                                 <td>${d.rev1 || ""}</td>
                                 <td>${d.obs1 || ""}</td>
                                 <td>${d.rev2 || ""}</td>
@@ -897,16 +898,86 @@
                                 <td>${d.obs3 || ""}</td>
                             </tr>`;
                     });
-                    html += `</tbody></table>
-                    `;
+                    htmlContent += `</tbody></table>`;
                 }
-                html += `<div class="pdf-footer">Powered by Rafael Ramos</div></body></html>`;
-                const win = window.open("", "_blank");
-                win.document.write(html);
-                win.document.close();
-                win.focus();
-                setTimeout(() => win.print(), 500);
+
+                htmlContent += `<div class="pdf-footer">Powered by Rafael Ramos</div></div>`;
+                
+                // --- 2. USAR JSDPF PARA GENERAR EL ARCHIVO ---
+                
+                // Crear un contenedor temporal para que html2canvas pueda capturar el estilo
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = htmlContent;
+                tempDiv.style.position = 'absolute'; // Moverlo fuera de la vista
+                tempDiv.style.left = '-9999px';
+                tempDiv.style.width = '210mm'; // Simular ancho de A4
+                document.body.appendChild(tempDiv);
+
+                html2canvas(tempDiv, { scale: 3 }).then((canvas) => {
+                    const imgData = canvas.toDataURL('image/png');
+                    const imgWidth = 210; // A4 width in mm
+                    const pageHeight = 295; // A4 height in mm
+                    const imgHeight = canvas.height * imgWidth / canvas.width;
+                    let heightLeft = imgHeight;
+                    let position = 0;
+
+                    // Agregar la primera página
+                    doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+
+                    // Agregar páginas adicionales si es necesario
+                    while (heightLeft >= 0) {
+                        position = heightLeft - pageHeight; // Corregido el cálculo para la siguiente página
+                        doc.addPage();
+                        doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                        heightLeft -= pageHeight;
+                    }
+
+                    // Remover el contenedor temporal del DOM
+                    document.body.removeChild(tempDiv);
+
+                    doc.save(`Reporte_RS_Chitre_${formattedReviewDate.replace(/\//g, '-')}.pdf`);
+                }).catch(error => {
+                    console.error("Error al generar PDF con jsPDF:", error);
+                    
+                    // Asegurar que el contenedor temporal se remueva si hay un error
+                    if(document.body.contains(tempDiv)) {
+                       document.body.removeChild(tempDiv);
+                    }
+                    
+                    alert('Fallo la generación directa del PDF. Intentando con la impresión nativa del navegador.');
+                    
+                    // FALLBACK: Usar el método anterior (window.print())
+                    const win = window.open("", "_blank");
+                    win.document.write(`
+                        <html>
+                            <head>
+                                <title>Reporte Riba Smith</title>
+                                <style>
+                                    /* Estilos para el fallback de impresión */
+                                    body { font-family: 'Poppins', sans-serif; margin: 30px; color: #111; }
+                                    .pdf-header, .pdf-header h1, .pdf-header h2 { text-align: center; }
+                                    table { width: 90%; border-collapse: collapse; border-spacing: 0; margin: 15px auto; font-size: 12pt; table-layout: fixed; border: 1px solid #333; }
+                                    th, td { border: 1px solid #333; padding: 8px; text-align: center; vertical-align: top; }
+                                    th { background: #f0f0f0; font-weight: bold; }
+                                    .left-align { text-align: left !important; }
+                                    .pdf-footer { text-align: center; font-size: 16pt; font-weight: bold; color: #666; margin-top: 20px; }
+                                    .page-break { page-break-before: always; }
+                                </style>
+                            </head>
+                            <body>
+                                ${htmlContent.replace(/<style\b[^>]*>[\s\S]*?<\/style>/i, '')}
+                            </body>
+                        </html>
+                    `);
+                    win.document.close();
+                    win.focus();
+                    setTimeout(() => win.print(), 500);
+                });
             };
+            // **********************************************
+            // ************ FIN DE FUNCIÓN CON JSDPF ************
+            // **********************************************
 
             function getTodayDateFormattedForInput() {
                 const today = new Date();
@@ -930,7 +1001,7 @@
                 if (!reviewDateInput.value) {
                     reviewDateInput.value = getTodayDateFormattedForInput();
                 }
-                // Nuevo: Cargar los nombres guardados del localStorage
+                // Cargar los nombres guardados del localStorage
                 const vespertinoNombreGuardado = localStorage.getItem(STORAGE_KEY_VESPERTINO);
                 if (vespertinoNombreGuardado) {
                     vespertinoNombreInput.value = vespertinoNombreGuardado;
@@ -941,7 +1012,7 @@
                 }
                 render();
 
-                // Nuevo: Escuchar los cambios en los campos de nombre para guardar automáticamente
+                // Escuchar los cambios en los campos de nombre para guardar automáticamente
                 vespertinoNombreInput.addEventListener('input', saveAndNotify);
                 nocturnoNombreInput.addEventListener('input', saveAndNotify);
             });
