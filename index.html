@@ -842,6 +842,12 @@
                         .avoid-break-row {
                             page-break-inside: avoid !important;
                         }
+                        
+                        /* CLAVE DE LA CORRECCIÓN FINAL: Fuerza el salto de página después del contenido largo */
+                        .force-page-break-after {
+                            page-break-after: always !important;
+                            break-after: page !important;
+                        }
                     </style>
                     <div class="pdf-header">
                         <h1>GRUPO RIBA SMITH</h1>
@@ -857,7 +863,11 @@
 
                 // --- TABLA DE TEMPERATURAS ---
                 if (dataTemperaturas.length) {
+                    // Si se está generando la sección de temperaturas (la más larga)
+                    const tempSectionClass = dataRevisiones.length > 0 ? 'force-page-break-after' : ''; // APLICA EL SALTO AQUÍ
+                    
                     htmlContent += `<div class="pdf-section-title avoid-break">Temperaturas</div>`;
+                    htmlContent += `<div class="${tempSectionClass}">`; // Contenedor para la tabla de Temperaturas
                     htmlContent += `<table class="avoid-break">
                         <thead>
                             <tr>
@@ -872,7 +882,6 @@
                         <tbody>
                     `;
                     dataTemperaturas.forEach(d => {
-                        // CLAVE: usar avoid-break-row en TR para que la lógica de paginación la detecte
                         htmlContent += `
                             <tr class="avoid-break-row"> 
                                 <td>${d.temp || ""}</td>
@@ -884,11 +893,12 @@
                             </tr>`;
                     });
                     htmlContent += `</tbody></table>`;
+                    htmlContent += `</div>`; // Cierra el contenedor de la tabla de Temperaturas
                 }
 
                 // --- TABLA DE REVISIONES ---
                 if (dataRevisiones.length) {
-                    // Se elimina el "page-break-before: always;" aquí para que la lógica de paginación lo determine
+                    // Esta tabla siempre se dibujará después de un salto si la de Temperaturas existe
                     htmlContent += `<div class="pdf-section-title avoid-break">Revisiones</div>`;
                     htmlContent += `<table class="avoid-break">
                         <thead>
@@ -910,10 +920,10 @@
                                 <td class="left-align">${d.area || ""}</td>
                                 <td>${d.rev1 || ""}</td>
                                 <td>${d.obs1 || ""}</td>
-                                <td>${d.rev2 || ""}</td>
                                 <td>${d.obs2 || ""}</td>
-                                <td>${d.rev3 || ""}</td>
+                                <td>${d.rev2 || ""}</td>
                                 <td>${d.obs3 || ""}</td>
+                                <td>${d.rev3 || ""}</td>
                             </tr>`;
                     });
                     htmlContent += `</tbody></table>`;
@@ -950,16 +960,18 @@
                         let heightLeft = imgHeight;
                         let currentOffset = 0; // Posición de corte en píxeles
 
-                        // Obtener la altura de los elementos 'avoid-break' (filas de tabla y títulos)
-                        const elementsToAvoidBreak = tempDiv.querySelectorAll('.pdf-section-title, .avoid-break-row, .pdf-header-details, .pdf-footer');
+                        // Obtener la altura de los elementos 'avoid-break' y 'force-page-break-after'
+                        const elementsToAvoidBreak = tempDiv.querySelectorAll('.pdf-section-title, .avoid-break-row, .pdf-header-details, .pdf-footer, .force-page-break-after');
                         const breakOffsets = [];
                         
                         elementsToAvoidBreak.forEach(el => {
                             const rect = el.getBoundingClientRect();
+                            const isForcedBreak = el.classList.contains('force-page-break-after');
                             // Guardar el offset de inicio y fin relativo al contenedor temporal
                             breakOffsets.push({
                                 start: rect.top - tempDiv.getBoundingClientRect().top,
-                                end: rect.bottom - tempDiv.getBoundingClientRect().top
+                                end: rect.bottom - tempDiv.getBoundingClientRect().top,
+                                isForced: isForcedBreak // Marcar si es un salto forzado (después de temperaturas)
                             });
                         });
                         
@@ -968,12 +980,19 @@
                             // Calcula el punto de corte A4 en píxeles a partir de la posición actual
                             let nextPageCut = currentOffset + (pageHeight * (canvas.width / imgWidth)); 
 
-                            // Ajustar el corte para evitar partir elementos (filas, títulos)
+                            // Ajustar el corte para evitar partir elementos (filas, títulos) o forzar saltos
                             for(const el of breakOffsets) {
-                                // Si el corte cae *dentro* de un elemento a evitar
+                                // 1. Manejo de Ruptura (Evitar que el corte caiga dentro de un elemento)
                                 if (el.start < nextPageCut && el.end > nextPageCut) {
-                                    // Mover el corte al inicio del elemento (nextPageCut se mueve hacia arriba)
+                                    // Mover el corte al inicio del elemento
                                     nextPageCut = el.start;
+                                    break; 
+                                }
+                                
+                                // 2. Manejo de Salto Forzado (Si el corte pasa el final de un salto forzado, usa ese final como punto de corte)
+                                if (el.isForced && nextPageCut > el.end && el.end > currentOffset) {
+                                    // Forzar el corte justo después del elemento forzado
+                                    nextPageCut = el.end;
                                     break; 
                                 }
                             }
@@ -991,12 +1010,14 @@
                             }
                             
                             // Actualizar la posición de corte para la siguiente página
+                            const previousOffset = currentOffset;
                             currentOffset = nextPageCut;
+                            
                             // Recalcular la altura restante en mm
                             heightLeft = imgHeight - (currentOffset * pixelToMmRatio);
                             
                             // Condición de salida de seguridad si el corte no avanza o se va más allá del contenido
-                            if (currentOffset >= imgHeight * (canvas.width / imgWidth) || nextPageCut <= currentOffset) break; 
+                            if (currentOffset >= imgHeight * (canvas.width / imgWidth) || nextPageCut <= previousOffset) break; 
                         }
 
                         // 3. Finalizar y descargar
