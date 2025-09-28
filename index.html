@@ -813,34 +813,40 @@
                 }
 
                 // --- 1. FUNCIÓN PARA AGREGAR EL ENCABEZADO Y PIE DE PÁGINA ---
-                const addHeaderAndFooter = (doc, y, title) => {
-                    const logoHeight = 10;
+                const addHeaderAndFooter = (doc, y, title, isFirstPage = true) => {
+                    // Reiniciar Y para asegurar posición si no es la primera página.
+                    let newY = isFirstPage ? y : 15; 
                     
-                    // Header Títulos
-                    doc.setFontSize(16).setFont('helvetica', 'bold');
-                    doc.text("GRUPO RIBA SMITH", doc.internal.pageSize.width / 2, y, { align: 'center' });
-                    y += 6;
-                    doc.setFontSize(12).setFont('helvetica', 'normal');
-                    doc.text("R/S CHITRÉ SELECTO", doc.internal.pageSize.width / 2, y, { align: 'center' });
-                    y += 5;
+                    // Header Títulos (Solo en la primera página)
+                    if (isFirstPage) {
+                        doc.setFontSize(16).setFont('helvetica', 'bold');
+                        doc.text("GRUPO RIBA SMITH", doc.internal.pageSize.width / 2, newY, { align: 'center' });
+                        newY += 6;
+                        doc.setFontSize(12).setFont('helvetica', 'normal');
+                        doc.text("R/S CHITRÉ SELECTO", doc.internal.pageSize.width / 2, newY, { align: 'center' });
+                        newY += 5;
+                    }
+
+                    // Título de Sección y Detalles
                     doc.setFontSize(12).setFont('helvetica', 'bold');
-                    doc.text(title, doc.internal.pageSize.width / 2, y, { align: 'center' });
-                    y += 8;
+                    doc.text(title, doc.internal.pageSize.width / 2, newY, { align: 'center' });
+                    newY += 8;
 
-                    // Header Detalles
                     doc.setFontSize(8).setFont('helvetica', 'normal');
-                    doc.text(`Fecha de Revisión: ${formattedReviewDate}`, marginX, y);
-                    doc.text(`Revisión Vespertina: ${vespertinoNombre || "________________"}`, doc.internal.pageSize.width / 2, y, { align: 'center' });
-                    doc.text(`Revisión Nocturna: ${nocturnoNombre || "________________"}`, doc.internal.pageSize.width - marginX, y, { align: 'right' });
-                    y += 5;
-
-                    return y; // Retorna la nueva posición Y
+                    // Mostrar detalles de la revisión
+                    doc.text(`Fecha de Revisión: ${formattedReviewDate}`, marginX, newY);
+                    doc.text(`Revisión Vespertina: ${vespertinoNombre || "________________"}`, doc.internal.pageSize.width / 2, newY, { align: 'center' });
+                    doc.text(`Revisión Nocturna: ${nocturnoNombre || "________________"}`, doc.internal.pageSize.width - marginX, newY, { align: 'right' });
+                    
+                    newY += 5; // Espacio después de los detalles
+                    
+                    return newY; // Retorna la nueva posición Y
                 };
 
                 // --- 2. GENERAR TABLA DE TEMPERATURAS ---
                 if (dataTemperaturas.length) {
-                    currentY = addHeaderAndFooter(doc, currentY, "REPORTE DE TEMPERATURAS");
-                    currentY += 5; // Espacio después del encabezado
+                    currentY = addHeaderAndFooter(doc, currentY, "REPORTE DE TEMPERATURAS", true);
+                    currentY += 5; 
                     
                     const tempHeaders = [
                         { header: 'TEMP', dataKey: 'temp' },
@@ -877,17 +883,14 @@
                             const footerText = 'Powered by Rafael Ramos';
                             doc.text(footerText, doc.internal.pageSize.width / 2, pageHeight - 5, { align: 'center' });
                             
-                            // Re-agregar encabezado en nuevas páginas
-                            if (data.pageNumber > 1) {
-                                let newY = 15;
-                                doc.setFontSize(16).setFont('helvetica', 'bold');
-                                doc.text("GRUPO RIBA SMITH", doc.internal.pageSize.width / 2, newY, { align: 'center' });
-                                newY += 5;
-                                doc.setFontSize(12).setFont('helvetica', 'normal');
-                                doc.text("R/S CHITRÉ SELECTO - REPORTE DE TEMPERATURAS", doc.internal.pageSize.width / 2, newY, { align: 'center' });
-                                newY += 5;
-                                doc.setFontSize(8).setFont('helvetica', 'normal');
-                                doc.text(`Página ${data.pageNumber}`, doc.internal.pageSize.width - marginX, newY, { align: 'right' });
+                            // Re-agregar encabezado SÓLO si es una página de continuación de la tabla de TEMPERATURAS
+                            // La primera página es data.pageNumber = 1 (si no hay revisiones antes)
+                            // Si la tabla de temperaturas ocupa más de una página:
+                            if (data.pageNumber > 1 && dataTemperaturas.length > 0) { 
+                                // Se calcula el espacio necesario para el encabezado repetido
+                                // Posición inicial (Y=15) + 6 + 5 + 8 + 5 = 39mm.
+                                // Se puede reutilizar la función de encabezado, pero ahora indicando que NO es la primera página del documento
+                                addHeaderAndFooter(doc, 0, "REPORTE DE TEMPERATURAS", false);
                             }
                         }
                     });
@@ -897,12 +900,15 @@
 
                 // --- 3. GENERAR TABLA DE REVISIONES ---
                 if (dataRevisiones.length) {
+                    let isFirstPageOfDoc = (dataTemperaturas.length === 0);
+                    
                     if (dataTemperaturas.length) {
                          doc.addPage();
-                         currentY = 15;
+                         currentY = 15; // Reiniciar Y
                     }
-                    
-                    currentY = addHeaderAndFooter(doc, currentY, "REPORTE DE REVISIONES");
+
+                    // El encabezado para la sección de revisiones (que puede ser la primera página del documento o no)
+                    currentY = addHeaderAndFooter(doc, currentY, "REPORTE DE REVISIONES", isFirstPageOfDoc);
                     currentY += 5; 
 
                     const revHeaders = [
@@ -918,7 +924,10 @@
                     const revBody = dataRevisiones.map(d => [
                         d.area || '', d.rev1 || '', d.obs1 || '', d.rev2 || '', d.obs2 || '', d.rev3 || '', d.obs3 || ''
                     ]);
-
+                    
+                    // Se usa un contador para saber en qué página de la sección de revisiones estamos.
+                    let revPageCount = 0; 
+                    
                     doc.autoTable({
                         startY: currentY,
                         head: [revHeaders.map(h => h.header)],
@@ -937,22 +946,16 @@
                         },
                         margin: { left: marginX, right: marginX },
                         didDrawPage: (data) => {
+                            revPageCount++; 
                             // Pie de página
                             doc.setFontSize(8).setFont('helvetica', 'normal');
                             const footerText = 'Powered by Rafael Ramos';
                             doc.text(footerText, doc.internal.pageSize.width / 2, pageHeight - 5, { align: 'center' });
                             
-                            // Re-agregar encabezado en nuevas páginas
-                            if (data.pageNumber > (dataTemperaturas.length ? 1 : 0)) { // Ajustar si es la primera tabla o no
-                                let newY = 15;
-                                doc.setFontSize(16).setFont('helvetica', 'bold');
-                                doc.text("GRUPO RIBA SMITH", doc.internal.pageSize.width / 2, newY, { align: 'center' });
-                                newY += 5;
-                                doc.setFontSize(12).setFont('helvetica', 'normal');
-                                doc.text("R/S CHITRÉ SELECTO - REPORTE DE REVISIONES", doc.internal.pageSize.width / 2, newY, { align: 'center' });
-                                newY += 5;
-                                doc.setFontSize(8).setFont('helvetica', 'normal');
-                                doc.text(`Página ${data.pageNumber}`, doc.internal.pageSize.width - marginX, newY, { align: 'right' });
+                            // Re-agregar encabezado si es una página de continuación de la tabla de REVISIONES (revPageCount > 1)
+                            if (revPageCount > 1) {
+                                // Se reutiliza la función, indicando que NO es la primera página del documento
+                                addHeaderAndFooter(doc, 0, "REPORTE DE REVISIONES", false);
                             }
                         }
                     });
