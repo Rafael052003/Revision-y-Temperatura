@@ -813,15 +813,6 @@
                 }
 
                 // --- 1. FUNCIÓN PARA AGREGAR EL ENCABEZADO Y PIE DE PÁGINA ---
-                // Se ha MODIFICADO el cálculo del espacio vertical.
-                // Altura que ocupa el encabezado COMPLETO (Página 1): Títulos grandes + Detalles = 33mm
-                const HEADER_HEIGHT_FULL = 33; 
-                // Altura que ocupa el encabezado REPETIDO (Páginas > 1): Título de Sección + Detalles = 15mm
-                const HEADER_HEIGHT_REPEATED = 15; 
-                // Posición Y de inicio de la TABLA en páginas de continuación
-                const START_Y_REPEATED_PAGE = HEADER_HEIGHT_REPEATED + 5; // (15mm + 5mm de padding) = 20mm
-
-
                 const addHeaderAndFooter = (doc, title, isFirstPage = true) => {
                     let yPos = 15; // Posición inicial (margen superior)
                     
@@ -839,12 +830,17 @@
                     } else {
                         // En páginas de continuación: Solo el título de sección y los detalles
                         doc.setFontSize(12).setFont('helvetica', 'bold');
-                        doc.text(title, doc.internal.pageSize.width / 2, yPos, { align: 'center' });
+                        doc.text("GRUPO RIBA SMITH", doc.internal.pageSize.width / 2, yPos - 3, { align: 'center' }); // Título más arriba para ahorrar espacio
+                        doc.setFontSize(12).setFont('helvetica', 'bold');
+                        doc.text("R/S CHITRÉ SELECTO - " + title, doc.internal.pageSize.width / 2, yPos + 3, { align: 'center' });
                         yPos += 8; // Espacio después del título de sección
                     }
 
                     // Detalles (Fecha y Nombres) - Se dibujan en todas las páginas, pero en posiciones relativas
                     doc.setFontSize(8).setFont('helvetica', 'normal');
+                    // Añadir número de página
+                    doc.text(`Página ${doc.internal.getNumberOfPages()}`, doc.internal.pageSize.width - marginX, yPos - 5, { align: 'right' });
+                    
                     doc.text(`Fecha de Revisión: ${formattedReviewDate}`, marginX, yPos);
                     doc.text(`Revisión Vespertina: ${vespertinoNombre || "________________"}`, doc.internal.pageSize.width / 2, yPos, { align: 'center' });
                     doc.text(`Revisión Nocturna: ${nocturnoNombre || "________________"}`, doc.internal.pageSize.width - marginX, yPos, { align: 'right' });
@@ -898,12 +894,11 @@
                             
                             // 2. Re-agregar encabezado SÓLO si es una página de continuación
                             if (data.pageNumber > 1) { 
-                                // Dibuja el encabezado REPETIDO (isFirstPage = false)
-                                addHeaderAndFooter(doc, "REPORTE DE TEMPERATURAS", false);
+                                // Dibuja el encabezado REPETIDO y CAPTURA la posición Y de finalización
+                                const newYPos = addHeaderAndFooter(doc, "REPORTE DE TEMPERATURAS", false);
                                 
                                 // 3. Forzar el cursor Y a la posición de inicio correcta.
-                                // Esto anula el cálculo de autoTable y lo pone justo donde termina nuestro encabezado repetido.
-                                data.cursor.y = START_Y_REPEATED_PAGE;
+                                data.cursor.y = newYPos; // <<-- LA CORRECCIÓN CLAVE
                             }
                         }
                     });
@@ -966,11 +961,11 @@
                             
                             // 2. Re-agregar encabezado si es una página de continuación de la tabla de REVISIONES
                             if (revPageCount > 1) {
-                                // Dibuja el encabezado repetido (isFirstPage = false)
-                                addHeaderAndFooter(doc, "REPORTE DE REVISIONES", false);
+                                // Dibuja el encabezado repetido y CAPTURA la posición Y de finalización
+                                const newYPos = addHeaderAndFooter(doc, "REPORTE DE REVISIONES", false);
                                 
                                 // 3. Forzar el cursor Y a la posición de inicio correcta.
-                                data.cursor.y = START_Y_REPEATED_PAGE; 
+                                data.cursor.y = newYPos; // <<-- LA CORRECCIÓN CLAVE
                             }
                         }
                     });
