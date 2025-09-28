@@ -778,7 +778,7 @@
             };
 
             // **********************************************
-            // ************ FUNCIÓN DE EXPORTACIÓN CON MÉTODO NATIVO DE jsPDF (html) ************
+            // ************ FUNCIÓN DE EXPORTACIÓN CON jsPDF.html() CORREGIDA ************
             // **********************************************
             btnExport.onclick = () => {
                 if (!dataTemperaturas.length && !dataRevisiones.length) {
@@ -791,7 +791,6 @@
                     return;
                 }
 
-                // Show the generating toast
                 showToast('Generando PDF... por favor espere.', 'fas fa-spinner fa-spin', 5000);
 
                 const { jsPDF } = window.jspdf;
@@ -836,11 +835,9 @@
                         .pdf-footer { text-align: center; font-size: 9pt; font-weight: bold; color: #666; margin-top: 30px; }
                         
                         /* CLAVE: Control de Salto de Página */
-                        /* Evita que el contenido de las filas se corte */
                         tr {
                             page-break-inside: avoid !important;
                         }
-                        /* Si solo hay una tabla, aplica el salto después para la siguiente sección si existe */
                         .break-after-this {
                             page-break-after: always !important;
                         }
@@ -859,11 +856,10 @@
 
                 // --- TABLA DE TEMPERATURAS ---
                 if (dataTemperaturas.length) {
-                    // Aplica el salto solo si hay otra sección después (REVISIONES)
                     const tempSectionClass = dataRevisiones.length > 0 ? 'break-after-this' : ''; 
                     
                     htmlContent += `<div class="pdf-section-title">Temperaturas</div>`;
-                    htmlContent += `<div class="${tempSectionClass}">`; // Contenedor para el salto
+                    htmlContent += `<div class="${tempSectionClass}">`; 
                     htmlContent += `<table>
                         <thead>
                             <tr>
@@ -889,7 +885,7 @@
                             </tr>`;
                     });
                     htmlContent += `</tbody></table>`;
-                    htmlContent += `</div>`; // Cierra el contenedor de la tabla de Temperaturas
+                    htmlContent += `</div>`; 
                 }
 
                 // --- TABLA DE REVISIONES ---
@@ -929,9 +925,12 @@
                 // --- 2. USAR EL MÉTODO NATIVO doc.html() ---
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = htmlContent;
-                tempDiv.style.position = 'absolute'; 
+                
+                // CORRECCIÓN CLAVE: Usar 'fixed' fuera de la vista y un ancho para A4
+                tempDiv.style.position = 'fixed'; 
+                tempDiv.style.top = '0';
                 tempDiv.style.left = '-9999px';
-                tempDiv.style.width = '200mm'; // Ancho para A4
+                tempDiv.style.width = '210mm'; 
                 document.body.appendChild(tempDiv);
                 
                 // Configuración para doc.html()
@@ -942,21 +941,23 @@
                         doc.save(`Reporte_RS_Chitre_${formattedReviewDate.replace(/\//g, '-')}.pdf`);
                         showToast('¡PDF guardado con éxito!', 'fas fa-check-circle', 4000);
                     },
-                    x: 5, // Margen izquierdo
-                    y: 5, // Margen superior
+                    x: 5, 
+                    y: 5, 
                     html2canvas: { 
-                        scale: 0.85, // Ajusta la escala para que quepa bien en A4 y mejore la calidad
+                        scale: 0.85, 
                         logging: false,
-                        windowWidth: 794 // Un ancho estándar para A4 a 96dpi (794px), ayuda a html2canvas
+                        windowWidth: 794 
                     },
-                    margin: [5, 5, 5, 5], // [Top, Right, Bottom, Left] en mm
+                    margin: [5, 5, 5, 5], 
                     autoPaging: 'text', 
-                    width: 200, // Ancho en mm del contenido que se va a renderizar
+                    width: 200, 
                     windowWidth: 794 
                 };
 
-                // Llama a la función HTML de jsPDF
-                doc.html(tempDiv, options);
+                // CRUCIAL: Retraso para asegurar que el DOM haya procesado la adición
+                setTimeout(() => {
+                    doc.html(tempDiv, options);
+                }, 50); // 50ms de retraso
             };
             // **********************************************
             // ************ FIN DE FUNCIÓN CON jsPDF.html() ************
