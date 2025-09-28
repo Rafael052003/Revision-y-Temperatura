@@ -813,40 +813,46 @@
                 }
 
                 // --- 1. FUNCIÓN PARA AGREGAR EL ENCABEZADO Y PIE DE PÁGINA ---
-                const addHeaderAndFooter = (doc, y, title, isFirstPage = true) => {
-                    // Reiniciar Y para asegurar posición si no es la primera página.
-                    let newY = isFirstPage ? y : 15; 
+                // Se ha modificado el cálculo del espacio vertical para el encabezado repetido
+                const HEADER_HEIGHT_FULL = 28; // Espacio necesario para el encabezado completo (títulos, logo, detalles)
+                const HEADER_HEIGHT_REPEATED = 15; // Espacio necesario para el encabezado repetido (título de sección y detalles)
+
+                const addHeaderAndFooter = (doc, title, isFirstPage = true) => {
+                    let yPos = 15; // Posición inicial
                     
                     // Header Títulos (Solo en la primera página)
                     if (isFirstPage) {
                         doc.setFontSize(16).setFont('helvetica', 'bold');
-                        doc.text("GRUPO RIBA SMITH", doc.internal.pageSize.width / 2, newY, { align: 'center' });
-                        newY += 6;
+                        doc.text("GRUPO RIBA SMITH", doc.internal.pageSize.width / 2, yPos, { align: 'center' });
+                        yPos += 6;
                         doc.setFontSize(12).setFont('helvetica', 'normal');
-                        doc.text("R/S CHITRÉ SELECTO", doc.internal.pageSize.width / 2, newY, { align: 'center' });
-                        newY += 5;
+                        doc.text("R/S CHITRÉ SELECTO", doc.internal.pageSize.width / 2, yPos, { align: 'center' });
+                        yPos += 5;
+                    } else {
+                        // En páginas de continuación, ajustamos la posición de inicio del contenido repetido
+                        yPos = 15; // Empezamos a 15mm del top
                     }
 
                     // Título de Sección y Detalles
                     doc.setFontSize(12).setFont('helvetica', 'bold');
-                    doc.text(title, doc.internal.pageSize.width / 2, newY, { align: 'center' });
-                    newY += 8;
+                    doc.text(title, doc.internal.pageSize.width / 2, yPos, { align: 'center' });
+                    yPos += 8; // Espacio después del título de sección
 
                     doc.setFontSize(8).setFont('helvetica', 'normal');
                     // Mostrar detalles de la revisión
-                    doc.text(`Fecha de Revisión: ${formattedReviewDate}`, marginX, newY);
-                    doc.text(`Revisión Vespertina: ${vespertinoNombre || "________________"}`, doc.internal.pageSize.width / 2, newY, { align: 'center' });
-                    doc.text(`Revisión Nocturna: ${nocturnoNombre || "________________"}`, doc.internal.pageSize.width - marginX, newY, { align: 'right' });
+                    doc.text(`Fecha de Revisión: ${formattedReviewDate}`, marginX, yPos);
+                    doc.text(`Revisión Vespertina: ${vespertinoNombre || "________________"}`, doc.internal.pageSize.width / 2, yPos, { align: 'center' });
+                    doc.text(`Revisión Nocturna: ${nocturnoNombre || "________________"}`, doc.internal.pageSize.width - marginX, yPos, { align: 'right' });
                     
-                    newY += 5; // Espacio después de los detalles
+                    yPos += 5; // Espacio después de los detalles
                     
-                    return newY; // Retorna la nueva posición Y
+                    return yPos; // Retorna la posición Y donde debe comenzar el contenido (la tabla)
                 };
 
                 // --- 2. GENERAR TABLA DE TEMPERATURAS ---
                 if (dataTemperaturas.length) {
-                    currentY = addHeaderAndFooter(doc, currentY, "REPORTE DE TEMPERATURAS", true);
-                    currentY += 5; 
+                    // Inicialmente, usamos el encabezado completo (isFirstPage = true)
+                    currentY = addHeaderAndFooter(doc, "REPORTE DE TEMPERATURAS", true);
                     
                     const tempHeaders = [
                         { header: 'TEMP', dataKey: 'temp' },
@@ -877,20 +883,23 @@
                             5: { cellWidth: 25 }, // 04:00
                         },
                         margin: { left: marginX, right: marginX },
+                        // ************************************************
+                        // ** LÓGICA CLAVE DE CORRECCIÓN **
+                        // ************************************************
                         didDrawPage: (data) => {
                             // Pie de página
                             doc.setFontSize(8).setFont('helvetica', 'normal');
                             const footerText = 'Powered by Rafael Ramos';
                             doc.text(footerText, doc.internal.pageSize.width / 2, pageHeight - 5, { align: 'center' });
                             
-                            // Re-agregar encabezado SÓLO si es una página de continuación de la tabla de TEMPERATURAS
-                            // La primera página es data.pageNumber = 1 (si no hay revisiones antes)
-                            // Si la tabla de temperaturas ocupa más de una página:
-                            if (data.pageNumber > 1 && dataTemperaturas.length > 0) { 
-                                // Se calcula el espacio necesario para el encabezado repetido
-                                // Posición inicial (Y=15) + 6 + 5 + 8 + 5 = 39mm.
-                                // Se puede reutilizar la función de encabezado, pero ahora indicando que NO es la primera página del documento
-                                addHeaderAndFooter(doc, 0, "REPORTE DE TEMPERATURAS", false);
+                            // Re-agregar encabezado SÓLO si es una página de continuación
+                            if (data.pageNumber > 1) { 
+                                // Dibuja el encabezado repetido (no-first-page)
+                                addHeaderAndFooter(doc, "REPORTE DE TEMPERATURAS", false);
+                                // AHORA: Ajustamos el startY para la tabla en la página de continuación.
+                                // data.cursor.y es la posición donde autoTable va a dibujar la tabla. 
+                                // La ajustamos para que esté por debajo de la altura del encabezado repetido.
+                                data.cursor.y = HEADER_HEIGHT_REPEATED + 5; // Dibuja la tabla más abajo (Ej: 15mm + 5mm = 20mm)
                             }
                         }
                     });
@@ -904,13 +913,11 @@
                     
                     if (dataTemperaturas.length) {
                          doc.addPage();
-                         currentY = 15; // Reiniciar Y
                     }
 
-                    // El encabezado para la sección de revisiones (que puede ser la primera página del documento o no)
-                    currentY = addHeaderAndFooter(doc, currentY, "REPORTE DE REVISIONES", isFirstPageOfDoc);
-                    currentY += 5; 
-
+                    // Calcular el startY inicial de la tabla de revisiones (puede ser 15mm o después del encabezado completo)
+                    currentY = addHeaderAndFooter(doc, "REPORTE DE REVISIONES", isFirstPageOfDoc);
+                    
                     const revHeaders = [
                         { header: 'PUERTAS Y/O ÁREAS', dataKey: 'area' },
                         { header: 'REV. N°1', dataKey: 'rev1' },
@@ -925,7 +932,8 @@
                         d.area || '', d.rev1 || '', d.obs1 || '', d.rev2 || '', d.obs2 || '', d.rev3 || '', d.obs3 || ''
                     ]);
                     
-                    // Se usa un contador para saber en qué página de la sección de revisiones estamos.
+                    // Se usa un contador para saber en qué página de la sección de revisiones estamos, 
+                    // para saber si es la primera página del documento o una continuación.
                     let revPageCount = 0; 
                     
                     doc.autoTable({
@@ -945,6 +953,9 @@
                             6: { cellWidth: 35 }, 
                         },
                         margin: { left: marginX, right: marginX },
+                        // ************************************************
+                        // ** LÓGICA CLAVE DE CORRECCIÓN **
+                        // ************************************************
                         didDrawPage: (data) => {
                             revPageCount++; 
                             // Pie de página
@@ -954,8 +965,10 @@
                             
                             // Re-agregar encabezado si es una página de continuación de la tabla de REVISIONES (revPageCount > 1)
                             if (revPageCount > 1) {
-                                // Se reutiliza la función, indicando que NO es la primera página del documento
-                                addHeaderAndFooter(doc, 0, "REPORTE DE REVISIONES", false);
+                                // Dibuja el encabezado repetido (no-first-page)
+                                addHeaderAndFooter(doc, "REPORTE DE REVISIONES", false);
+                                // AHORA: Ajustamos el startY para la tabla en la página de continuación.
+                                data.cursor.y = HEADER_HEIGHT_REPEATED + 5; 
                             }
                         }
                     });
