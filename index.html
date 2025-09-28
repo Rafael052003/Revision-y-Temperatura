@@ -812,11 +812,11 @@
                     formattedReviewDate = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
                 }
 
-                // --- 1. FUNCIÓN PARA AGREGAR EL ENCABEZADO Y PIE DE PÁGINA ---
+                // --- 1. FUNCIÓN PARA AGREGAR EL ENCABEZADO Y PIE DE PÁGINA (Ajustada) ---
                 const addHeaderAndFooter = (doc, title, isFirstPage = true) => {
                     let yPos = 15; // Posición inicial (margen superior)
                     
-                    // Header Títulos (Solo en la primera página)
+                    // Header Títulos
                     if (isFirstPage) {
                         doc.setFontSize(16).setFont('helvetica', 'bold');
                         doc.text("GRUPO RIBA SMITH", doc.internal.pageSize.width / 2, yPos, { align: 'center' });
@@ -828,18 +828,17 @@
                         doc.text(title, doc.internal.pageSize.width / 2, yPos, { align: 'center' });
                         yPos += 8; // Espacio después del título de sección
                     } else {
-                        // En páginas de continuación: Solo el título de sección y los detalles
-                        doc.setFontSize(12).setFont('helvetica', 'bold');
-                        doc.text("GRUPO RIBA SMITH", doc.internal.pageSize.width / 2, yPos - 3, { align: 'center' }); // Título más arriba para ahorrar espacio
-                        doc.setFontSize(12).setFont('helvetica', 'bold');
-                        doc.text("R/S CHITRÉ SELECTO - " + title, doc.internal.pageSize.width / 2, yPos + 3, { align: 'center' });
-                        yPos += 8; // Espacio después del título de sección
+                        // ** CORRECCIÓN: Encabezado compacto para páginas de continuación **
+                        doc.setFontSize(10).setFont('helvetica', 'bold');
+                        doc.text(title, doc.internal.pageSize.width / 2, yPos, { align: 'center' });
+                        yPos += 5; // Espacio después del título de sección en páginas de continuación
                     }
 
-                    // Detalles (Fecha y Nombres) - Se dibujan en todas las páginas, pero en posiciones relativas
+                    // Detalles (Fecha y Nombres) - Se dibujan en todas las páginas.
                     doc.setFontSize(8).setFont('helvetica', 'normal');
-                    // Añadir número de página
-                    doc.text(`Página ${doc.internal.getNumberOfPages()}`, doc.internal.pageSize.width - marginX, yPos - 5, { align: 'right' });
+                    
+                    // Añadir número de página (Dibujado más arriba para evitar conflictos)
+                    doc.text(`Página ${doc.internal.getNumberOfPages()}`, doc.internal.pageSize.width - marginX, 10, { align: 'right' });
                     
                     doc.text(`Fecha de Revisión: ${formattedReviewDate}`, marginX, yPos);
                     doc.text(`Revisión Vespertina: ${vespertinoNombre || "________________"}`, doc.internal.pageSize.width / 2, yPos, { align: 'center' });
