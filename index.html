@@ -796,7 +796,6 @@
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF('p', 'mm', 'a4'); 
                 const marginX = 15;
-                let currentY = 15;
                 const pageHeight = doc.internal.pageSize.height;
 
                 const vespertinoNombre = vespertinoNombreInput.value.trim();
@@ -812,12 +811,12 @@
                     formattedReviewDate = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
                 }
 
-                // --- 1. FUNCIÓN PARA AGREGAR EL ENCABEZADO Y PIE DE PÁGINA (Ajustada) ---
-                const addHeaderAndFooter = (doc, title, isFirstPage = true) => {
+                // --- 1. FUNCIÓN PARA AGREGAR EL ENCABEZADO Y PIE DE PÁGINA (SOLO EN PÁGINA 1) ---
+                const addHeaderAndFooter = (doc, title) => {
                     let yPos = 15; // Posición inicial (margen superior)
                     
-                    // Header Títulos
-                    if (isFirstPage) {
+                    // Header Completo - SOLO SE DIBUJA EN LA PRIMERA PÁGINA (Página 1)
+                    if (doc.internal.getNumberOfPages() === 1) {
                         doc.setFontSize(16).setFont('helvetica', 'bold');
                         doc.text("GRUPO RIBA SMITH", doc.internal.pageSize.width / 2, yPos, { align: 'center' });
                         yPos += 6;
@@ -827,31 +826,31 @@
                         doc.setFontSize(12).setFont('helvetica', 'bold');
                         doc.text(title, doc.internal.pageSize.width / 2, yPos, { align: 'center' });
                         yPos += 8; // Espacio después del título de sección
-                    } else {
-                        // ** CORRECCIÓN: Encabezado compacto para páginas de continuación **
-                        doc.setFontSize(10).setFont('helvetica', 'bold');
-                        doc.text(title, doc.internal.pageSize.width / 2, yPos, { align: 'center' });
-                        yPos += 5; // Espacio después del título de sección en páginas de continuación
-                    }
 
-                    // Detalles (Fecha y Nombres) - Se dibujan en todas las páginas.
+                        // Detalles (Fecha y Nombres)
+                        doc.setFontSize(8).setFont('helvetica', 'normal');
+                        doc.text(`Fecha de Revisión: ${formattedReviewDate}`, marginX, yPos);
+                        doc.text(`Revisión Vespertina: ${vespertinoNombre || "________________"}`, doc.internal.pageSize.width / 2, yPos, { align: 'center' });
+                        doc.text(`Revisión Nocturna: ${nocturnoNombre || "________________"}`, doc.internal.pageSize.width - marginX, yPos, { align: 'right' });
+                        
+                        yPos += 5; // Espacio después de los detalles
+                    }
+                    
+                    // Número de Página y Pie de Página - Se dibujan en TODAS las páginas
                     doc.setFontSize(8).setFont('helvetica', 'normal');
+                    doc.text(`Página ${doc.internal.getNumberOfPages()}`, doc.internal.pageSize.width - marginX, 10, { align: 'right' }); 
                     
-                    // Añadir número de página (Dibujado más arriba para evitar conflictos)
-                    doc.text(`Página ${doc.internal.getNumberOfPages()}`, doc.internal.pageSize.width - marginX, 10, { align: 'right' });
+                    const footerText = 'Powered by Rafael Ramos';
+                    doc.text(footerText, doc.internal.pageSize.width / 2, pageHeight - 5, { align: 'center' });
                     
-                    doc.text(`Fecha de Revisión: ${formattedReviewDate}`, marginX, yPos);
-                    doc.text(`Revisión Vespertina: ${vespertinoNombre || "________________"}`, doc.internal.pageSize.width / 2, yPos, { align: 'center' });
-                    doc.text(`Revisión Nocturna: ${nocturnoNombre || "________________"}`, doc.internal.pageSize.width - marginX, yPos, { align: 'right' });
-                    
-                    yPos += 5; // Espacio después de los detalles
-                    
-                    return yPos; // Retorna la posición Y donde debe comenzar el contenido (la tabla)
+                    // Retorna la posición Y donde debe comenzar el contenido.
+                    // 15mm es el margen superior.
+                    return (doc.internal.getNumberOfPages() === 1) ? yPos : 15;
                 };
 
                 // --- 2. GENERAR TABLA DE TEMPERATURAS ---
                 if (dataTemperaturas.length) {
-                    currentY = addHeaderAndFooter(doc, "REPORTE DE TEMPERATURAS", true);
+                    let currentY = addHeaderAndFooter(doc, "REPORTE DE TEMPERATURAS");
                     
                     const tempHeaders = [
                         { header: 'TEMP', dataKey: 'temp' },
@@ -881,39 +880,37 @@
                             4: { cellWidth: 25 }, // 02:00
                             5: { cellWidth: 25 }, // 04:00
                         },
-                        margin: { left: marginX, right: marginX },
-                        // ************************************************
-                        // ** AJUSTE DE CORRECCIÓN CLAVE **
-                        // ************************************************
+                        margin: { left: marginX, right: marginX, top: 15, bottom: 15 }, // Margen constante para páginas de continuación
+                        
                         didDrawPage: (data) => {
-                            // 1. Pie de página
+                            // Pie de página (se repite en todas las páginas generadas por autoTable)
                             doc.setFontSize(8).setFont('helvetica', 'normal');
                             const footerText = 'Powered by Rafael Ramos';
                             doc.text(footerText, doc.internal.pageSize.width / 2, pageHeight - 5, { align: 'center' });
                             
-                            // 2. Re-agregar encabezado SÓLO si es una página de continuación
+                            // Si es una página de continuación (página 2, 3, etc. del autoTable)
                             if (data.pageNumber > 1) { 
-                                // Dibuja el encabezado REPETIDO y CAPTURA la posición Y de finalización
-                                const newYPos = addHeaderAndFooter(doc, "REPORTE DE TEMPERATURAS", false);
+                                // Dibujar el número de página en la esquina superior derecha
+                                doc.text(`Página ${doc.internal.getNumberOfPages()}`, doc.internal.pageSize.width - marginX, 10, { align: 'right' }); 
                                 
-                                // 3. Forzar el cursor Y a la posición de inicio correcta.
-                                data.cursor.y = newYPos; // <<-- LA CORRECCIÓN CLAVE
+                                // ** LO IMPORTANTE: NO LLAMAMOS A addHeaderAndFooter aquí. **
+                                // Forzar el cursor Y a 15mm (margen superior), permitiendo que la tabla continúe
+                                data.cursor.y = 15;
                             }
                         }
                     });
-                    currentY = doc.lastAutoTable.finalY + 10;
                 }
 
 
                 // --- 3. GENERAR TABLA DE REVISIONES ---
                 if (dataRevisiones.length) {
-                    let isFirstPageOfDoc = (dataTemperaturas.length === 0);
-                    
-                    if (!isFirstPageOfDoc) {
+                    // Si ya hay páginas, añade una nueva.
+                    if (doc.internal.getNumberOfPages() > 1 || dataTemperaturas.length > 0) {
                          doc.addPage();
                     }
-
-                    currentY = addHeaderAndFooter(doc, "REPORTE DE REVISIONES", isFirstPageOfDoc);
+                    
+                    // Obtenemos el Y de inicio. Si es la primera página del documento, dibuja encabezado completo.
+                    let currentY = addHeaderAndFooter(doc, "REPORTE DE REVISIONES");
                     
                     const revHeaders = [
                         { header: 'PUERTAS Y/O ÁREAS', dataKey: 'area' },
@@ -947,24 +944,23 @@
                             5: { cellWidth: 15 }, 
                             6: { cellWidth: 35 }, 
                         },
-                        margin: { left: marginX, right: marginX },
-                        // ************************************************
-                        // ** AJUSTE DE CORRECCIÓN CLAVE **
-                        // ************************************************
+                        margin: { left: marginX, right: marginX, top: 15, bottom: 15 },
+                        
                         didDrawPage: (data) => {
                             revPageCount++; 
-                            // 1. Pie de página
+                            // Pie de página (se repite en todas las páginas generadas por autoTable)
                             doc.setFontSize(8).setFont('helvetica', 'normal');
                             const footerText = 'Powered by Rafael Ramos';
                             doc.text(footerText, doc.internal.pageSize.width / 2, pageHeight - 5, { align: 'center' });
                             
-                            // 2. Re-agregar encabezado si es una página de continuación de la tabla de REVISIONES
+                            // Si es una página de continuación (página 2, 3, etc. del autoTable)
                             if (revPageCount > 1) {
-                                // Dibuja el encabezado repetido y CAPTURA la posición Y de finalización
-                                const newYPos = addHeaderAndFooter(doc, "REPORTE DE REVISIONES", false);
+                                // Dibujar el número de página en la esquina superior derecha
+                                doc.text(`Página ${doc.internal.getNumberOfPages()}`, doc.internal.pageSize.width - marginX, 10, { align: 'right' }); 
                                 
-                                // 3. Forzar el cursor Y a la posición de inicio correcta.
-                                data.cursor.y = newYPos; // <<-- LA CORRECCIÓN CLAVE
+                                // ** LO IMPORTANTE: NO LLAMAMOS A addHeaderAndFooter aquí. **
+                                // Forzar el cursor Y a 15mm (margen superior), permitiendo que la tabla continúe
+                                data.cursor.y = 15; 
                             }
                         }
                     });
