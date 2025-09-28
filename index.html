@@ -517,8 +517,8 @@
         </p>
     </footer>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
     <script>
         if ('serviceWorker' in navigator) {
@@ -621,19 +621,19 @@
                 toast.className = 'toast';
                 toast.innerHTML = `<i class="${iconClass}"></i> ${message}`;
                 
-                toastContainer.prepend(toast); // Agregar al principio para apilarlos hacia abajo (si flex-direction: column)
+                toastContainer.prepend(toast); // Agregar al principio para apilarse
 
                 // Muestra el toast
                 setTimeout(() => {
                     toast.classList.add('show');
-                }, 10); // Pequeño retraso para asegurar la animación
+                }, 10); 
 
                 // Oculta y remueve el toast
                 setTimeout(() => {
                     toast.classList.remove('show');
                     setTimeout(() => {
                         toast.remove();
-                    }, 300); // Espera que termine la animación de desvanecimiento
+                    }, 300); 
                 }, duration);
             }
 
@@ -777,17 +777,17 @@
                 if (event.target === privacyModal) privacyModal.style.display = 'none';
             };
 
-            // **********************************************
-            // ************ FUNCIÓN DE EXPORTACIÓN CON jsPDF.html() CORREGIDA ************
-            // **********************************************
+            // ******************************************************************
+            // ************ FUNCIÓN DE EXPORTACIÓN CON jsPDF.autoTable() *********
+            // ******************************************************************
             btnExport.onclick = () => {
                 if (!dataTemperaturas.length && !dataRevisiones.length) {
                     showToast('No hay datos para exportar.', 'fas fa-exclamation-triangle', 3000);
                     return;
                 }
 
-                if (typeof window.jspdf === 'undefined') {
-                    showToast('Error: Librería de jsPDF no cargada.', 'fas fa-times-circle', 4000);
+                if (typeof window.jspdf === 'undefined' || typeof window.jspdf.AcroForm === 'undefined') {
+                    showToast('Error: Librería de jsPDF o AutoTable no cargada.', 'fas fa-times-circle', 4000);
                     return;
                 }
 
@@ -795,9 +795,12 @@
 
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF('p', 'mm', 'a4'); 
+                const marginX = 15;
+                let currentY = 15;
+                const pageHeight = doc.internal.pageSize.height;
 
-                const vespertinoNombre = document.getElementById('vespertino-nombre').value.trim();
-                const nocturnoNombre = document.getElementById('nocturno-nombre').value.trim();
+                const vespertinoNombre = vespertinoNombreInput.value.trim();
+                const nocturnoNombre = nocturnoNombreInput.value.trim();
                 
                 const reviewDateValue = reviewDateInput.value;
                 let formattedReviewDate = 'N/A';
@@ -809,159 +812,159 @@
                     formattedReviewDate = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
                 }
 
-
-                // --- 1. GENERAR EL HTML COMPLETO EN UN DIV TEMPORAL ---
-                let htmlContent = `
-                <div id="pdf-content-container" style="padding: 15px; margin: 0; background-color: white; font-family: 'Poppins', sans-serif;">
-                    <style>
-                        /* Estilos críticos para PDF */
-                        .pdf-header { text-align: center; margin-bottom: 20px; font-family: 'Poppins', sans-serif; }
-                        .pdf-header h1 { font-size: 20pt; font-weight: 700; text-transform: uppercase; margin: 0; }
-                        .pdf-header h2 { font-size: 14pt; font-weight: 500; margin: 5px 0 10px 0; }
-                        .pdf-header-details { font-size: 10pt; display: flex; justify-content: space-between; margin-bottom: 20px; padding: 0 5px; }
-                        .pdf-header-details > div { width: 33%; }
-                        .pdf-section-title { font-size: 16pt; font-weight: 700; text-align: center; margin-top: 25px; margin-bottom: 5px; text-transform: uppercase; }
-                        
-                        table { width: 100%; border-collapse: collapse; border-spacing: 0; font-size: 8pt; table-layout: fixed; margin-bottom: 15px; }
-                        th, td { border: 1px solid #333; padding: 5px 3px; text-align: center; vertical-align: middle; height: 15px; }
-                        th { 
-                            background: #f0f0f0 !important; 
-                            color: #111 !important; 
-                            -webkit-print-color-adjust: exact !important; 
-                            color-adjust: exact !important; 
-                            font-weight: bold; 
-                        }
-                        .left-align { text-align: left !important; }
-                        .pdf-footer { text-align: center; font-size: 9pt; font-weight: bold; color: #666; margin-top: 30px; }
-                        
-                        /* CLAVE: Control de Salto de Página */
-                        tr {
-                            page-break-inside: avoid !important;
-                        }
-                        .break-after-this {
-                            page-break-after: always !important;
-                        }
-                    </style>
-                    <div class="pdf-header">
-                        <h1>GRUPO RIBA SMITH</h1>
-                        <h2>R/S CHITRÉ SELECTO</h2>
-                        <h2>REVISIÓN DE INSTALACIONES Y TEMPERATURAS</h2>
-                    </div>
-                    <div class="pdf-header-details">
-                        <div>Fecha de Revisión: ${formattedReviewDate}</div>
-                        <div>Revisión Vespertina: ${vespertinoNombre || "________________"}</div>
-                        <div>Revisión Nocturna: ${nocturnoNombre || "________________"}</div>
-                    </div>
-                `;
-
-                // --- TABLA DE TEMPERATURAS ---
-                if (dataTemperaturas.length) {
-                    const tempSectionClass = dataRevisiones.length > 0 ? 'break-after-this' : ''; 
+                // --- 1. FUNCIÓN PARA AGREGAR EL ENCABEZADO Y PIE DE PÁGINA ---
+                const addHeaderAndFooter = (doc, y, title) => {
+                    const logoHeight = 10;
                     
-                    htmlContent += `<div class="pdf-section-title">Temperaturas</div>`;
-                    htmlContent += `<div class="${tempSectionClass}">`; 
-                    htmlContent += `<table>
-                        <thead>
-                            <tr>
-                                <th style="width: 10%;">TEMP</th>
-                                <th style="width: 30%;">NEVERAS</th>
-                                <th style="width: 15%;">22:00</th>
-                                <th style="width: 15%;">00:00</th>
-                                <th style="width: 15%;">02:00</th>
-                                <th style="width: 15%;">04:00</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                    `;
-                    dataTemperaturas.forEach(d => {
-                        htmlContent += `
-                            <tr> 
-                                <td>${d.temp || ""}</td>
-                                <td class="left-align">${d.nevera || ""}</td>
-                                <td>${d.t2200 || ""}</td>
-                                <td>${d.t0000 || ""}</td>
-                                <td>${d.t0200 || ""}</td>
-                                <td>${d.t0400 || ""}</td>
-                            </tr>`;
-                    });
-                    htmlContent += `</tbody></table>`;
-                    htmlContent += `</div>`; 
-                }
+                    // Header Títulos
+                    doc.setFontSize(16).setFont('helvetica', 'bold');
+                    doc.text("GRUPO RIBA SMITH", doc.internal.pageSize.width / 2, y, { align: 'center' });
+                    y += 6;
+                    doc.setFontSize(12).setFont('helvetica', 'normal');
+                    doc.text("R/S CHITRÉ SELECTO", doc.internal.pageSize.width / 2, y, { align: 'center' });
+                    y += 5;
+                    doc.setFontSize(12).setFont('helvetica', 'bold');
+                    doc.text(title, doc.internal.pageSize.width / 2, y, { align: 'center' });
+                    y += 8;
 
-                // --- TABLA DE REVISIONES ---
-                if (dataRevisiones.length) {
-                    htmlContent += `<div class="pdf-section-title">Revisiones</div>`;
-                    htmlContent += `<table>
-                        <thead>
-                            <tr>
-                                <th style="width: 25%;">PUERTAS Y/O ÁREAS</th>
-                                <th style="width: 10%;">REVISIÓN Nº1</th>
-                                <th style="width: 15%;">OBSERVACIÓN</th>
-                                <th style="width: 10%;">REVISIÓN Nº2</th>
-                                <th style="width: 15%;">OBSERVACIÓN</th>
-                                <th style="width: 10%;">REVISIÓN Nº3</th>
-                                <th style="width: 15%;">OBSERVACIÓN</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                    `;
-                    dataRevisiones.forEach(d => {
-                        htmlContent += `
-                            <tr> 
-                                <td class="left-align">${d.area || ""}</td>
-                                <td>${d.rev1 || ""}</td>
-                                <td>${d.obs1 || ""}</td>
-                                <td>${d.rev2 || ""}</td>
-                                <td>${d.obs2 || ""}</td>
-                                <td>${d.rev3 || ""}</td>
-                                <td>${d.obs3 || ""}</td>
-                            </tr>`;
-                    });
-                    htmlContent += `</tbody></table>`;
-                }
+                    // Header Detalles
+                    doc.setFontSize(8).setFont('helvetica', 'normal');
+                    doc.text(`Fecha de Revisión: ${formattedReviewDate}`, marginX, y);
+                    doc.text(`Revisión Vespertina: ${vespertinoNombre || "________________"}`, doc.internal.pageSize.width / 2, y, { align: 'center' });
+                    doc.text(`Revisión Nocturna: ${nocturnoNombre || "________________"}`, doc.internal.pageSize.width - marginX, y, { align: 'right' });
+                    y += 5;
 
-                htmlContent += `<div class="pdf-footer">Powered by Rafael Ramos</div></div>`;
-                
-                // --- 2. USAR EL MÉTODO NATIVO doc.html() ---
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = htmlContent;
-                
-                // CORRECCIÓN CLAVE: Usar 'fixed' fuera de la vista y un ancho para A4
-                tempDiv.style.position = 'fixed'; 
-                tempDiv.style.top = '0';
-                tempDiv.style.left = '-9999px';
-                tempDiv.style.width = '210mm'; 
-                document.body.appendChild(tempDiv);
-                
-                // Configuración para doc.html()
-                const options = {
-                    callback: function (doc) {
-                        // 3. Finalizar y descargar
-                        document.body.removeChild(tempDiv);
-                        doc.save(`Reporte_RS_Chitre_${formattedReviewDate.replace(/\//g, '-')}.pdf`);
-                        showToast('¡PDF guardado con éxito!', 'fas fa-check-circle', 4000);
-                    },
-                    x: 5, 
-                    y: 5, 
-                    html2canvas: { 
-                        scale: 0.85, 
-                        logging: false,
-                        windowWidth: 794 
-                    },
-                    margin: [5, 5, 5, 5], 
-                    autoPaging: 'text', 
-                    width: 200, 
-                    windowWidth: 794 
+                    return y; // Retorna la nueva posición Y
                 };
 
-                // CRUCIAL: Retraso para asegurar que el DOM haya procesado la adición
-                setTimeout(() => {
-                    doc.html(tempDiv, options);
-                }, 50); // 50ms de retraso
+                // --- 2. GENERAR TABLA DE TEMPERATURAS ---
+                if (dataTemperaturas.length) {
+                    currentY = addHeaderAndFooter(doc, currentY, "REPORTE DE TEMPERATURAS");
+                    currentY += 5; // Espacio después del encabezado
+                    
+                    const tempHeaders = [
+                        { header: 'TEMP', dataKey: 'temp' },
+                        { header: 'NEVERAS', dataKey: 'nevera' },
+                        { header: '22:00', dataKey: 't2200' },
+                        { header: '00:00', dataKey: 't0000' },
+                        { header: '02:00', dataKey: 't0200' },
+                        { header: '04:00', dataKey: 't0400' },
+                    ];
+                    
+                    const tempBody = dataTemperaturas.map(d => [
+                        d.temp || '', d.nevera || '', d.t2200 || '', d.t0000 || '', d.t0200 || '', d.t0400 || ''
+                    ]);
+
+                    doc.autoTable({
+                        startY: currentY,
+                        head: [tempHeaders.map(h => h.header)],
+                        body: tempBody,
+                        theme: 'grid',
+                        styles: { fontSize: 8, cellPadding: 2, halign: 'center' },
+                        headStyles: { fillColor: [240, 240, 240], textColor: [17, 17, 17], fontStyle: 'bold' },
+                        columnStyles: {
+                            0: { cellWidth: 15 }, // TEMP
+                            1: { cellWidth: 60, halign: 'left' }, // NEVERAS
+                            2: { cellWidth: 25 }, // 22:00
+                            3: { cellWidth: 25 }, // 00:00
+                            4: { cellWidth: 25 }, // 02:00
+                            5: { cellWidth: 25 }, // 04:00
+                        },
+                        margin: { left: marginX, right: marginX },
+                        didDrawPage: (data) => {
+                            // Pie de página
+                            doc.setFontSize(8).setFont('helvetica', 'normal');
+                            const footerText = 'Powered by Rafael Ramos';
+                            doc.text(footerText, doc.internal.pageSize.width / 2, pageHeight - 5, { align: 'center' });
+                            
+                            // Re-agregar encabezado en nuevas páginas
+                            if (data.pageNumber > 1) {
+                                let newY = 15;
+                                doc.setFontSize(16).setFont('helvetica', 'bold');
+                                doc.text("GRUPO RIBA SMITH", doc.internal.pageSize.width / 2, newY, { align: 'center' });
+                                newY += 5;
+                                doc.setFontSize(12).setFont('helvetica', 'normal');
+                                doc.text("R/S CHITRÉ SELECTO - REPORTE DE TEMPERATURAS", doc.internal.pageSize.width / 2, newY, { align: 'center' });
+                                newY += 5;
+                                doc.setFontSize(8).setFont('helvetica', 'normal');
+                                doc.text(`Página ${data.pageNumber}`, doc.internal.pageSize.width - marginX, newY, { align: 'right' });
+                            }
+                        }
+                    });
+                    currentY = doc.lastAutoTable.finalY + 10;
+                }
+
+
+                // --- 3. GENERAR TABLA DE REVISIONES ---
+                if (dataRevisiones.length) {
+                    if (dataTemperaturas.length) {
+                         doc.addPage();
+                         currentY = 15;
+                    }
+                    
+                    currentY = addHeaderAndFooter(doc, currentY, "REPORTE DE REVISIONES");
+                    currentY += 5; 
+
+                    const revHeaders = [
+                        { header: 'PUERTAS Y/O ÁREAS', dataKey: 'area' },
+                        { header: 'REV. N°1', dataKey: 'rev1' },
+                        { header: 'OBSERVACIÓN', dataKey: 'obs1' },
+                        { header: 'REV. N°2', dataKey: 'rev2' },
+                        { header: 'OBSERVACIÓN', dataKey: 'obs2' },
+                        { header: 'REV. N°3', dataKey: 'rev3' },
+                        { header: 'OBSERVACIÓN', dataKey: 'obs3' },
+                    ];
+                    
+                    const revBody = dataRevisiones.map(d => [
+                        d.area || '', d.rev1 || '', d.obs1 || '', d.rev2 || '', d.obs2 || '', d.rev3 || '', d.obs3 || ''
+                    ]);
+
+                    doc.autoTable({
+                        startY: currentY,
+                        head: [revHeaders.map(h => h.header)],
+                        body: revBody,
+                        theme: 'grid',
+                        styles: { fontSize: 8, cellPadding: 2, halign: 'center' },
+                        headStyles: { fillColor: [240, 240, 240], textColor: [17, 17, 17], fontStyle: 'bold' },
+                        columnStyles: {
+                            0: { cellWidth: 45, halign: 'left' }, 
+                            1: { cellWidth: 15 }, 
+                            2: { cellWidth: 35 }, 
+                            3: { cellWidth: 15 }, 
+                            4: { cellWidth: 35 }, 
+                            5: { cellWidth: 15 }, 
+                            6: { cellWidth: 35 }, 
+                        },
+                        margin: { left: marginX, right: marginX },
+                        didDrawPage: (data) => {
+                            // Pie de página
+                            doc.setFontSize(8).setFont('helvetica', 'normal');
+                            const footerText = 'Powered by Rafael Ramos';
+                            doc.text(footerText, doc.internal.pageSize.width / 2, pageHeight - 5, { align: 'center' });
+                            
+                            // Re-agregar encabezado en nuevas páginas
+                            if (data.pageNumber > (dataTemperaturas.length ? 1 : 0)) { // Ajustar si es la primera tabla o no
+                                let newY = 15;
+                                doc.setFontSize(16).setFont('helvetica', 'bold');
+                                doc.text("GRUPO RIBA SMITH", doc.internal.pageSize.width / 2, newY, { align: 'center' });
+                                newY += 5;
+                                doc.setFontSize(12).setFont('helvetica', 'normal');
+                                doc.text("R/S CHITRÉ SELECTO - REPORTE DE REVISIONES", doc.internal.pageSize.width / 2, newY, { align: 'center' });
+                                newY += 5;
+                                doc.setFontSize(8).setFont('helvetica', 'normal');
+                                doc.text(`Página ${data.pageNumber}`, doc.internal.pageSize.width - marginX, newY, { align: 'right' });
+                            }
+                        }
+                    });
+                }
+                
+                // 4. Finalizar y descargar
+                doc.save(`Reporte_RS_Chitre_${formattedReviewDate.replace(/\//g, '-')}.pdf`);
+                showToast('¡PDF guardado con éxito!', 'fas fa-check-circle', 4000);
             };
-            // **********************************************
-            // ************ FIN DE FUNCIÓN CON jsPDF.html() ************
-            // **********************************************
+            // ******************************************************************
+            // ************ FIN DE FUNCIÓN CON jsPDF.autoTable() ****************
+            // ******************************************************************
 
             function getTodayDateFormattedForInput() {
                 const today = new Date();
