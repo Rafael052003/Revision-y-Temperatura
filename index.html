@@ -359,6 +359,8 @@
             align-items: center;
             gap: 10px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            min-width: 250px; /* Asegura un ancho mínimo */
+            justify-content: center;
         }
         .toast.show {
             opacity: 1;
@@ -387,7 +389,7 @@
             <div class="title-group">
                 <h1>GRUPO RIBA SMITH</h1>
                 <h2>R/S CHITRÉ SELECTO</h2>
-                <h1 id="main-title">REVISIÓN DE INSTALACIONES</h1>
+                <h1 id="main-title">REVISIÓN DE INSTALACIONES</h1> 
             </div>
         </header>
 
@@ -614,28 +616,59 @@
                 }, 300);
             }
 
-            // Función para mostrar el Toast (Notificación)
+            // =========================================================================
+            // LÓGICA DE TOASTS MODIFICADA
+            // =========================================================================
+            let currentToastElement = null;
+
+            // Función para mostrar un Toast que se OCULTA automáticamente
             function showToast(message, iconClass, duration = 3000) {
                 const toastContainer = document.getElementById('toast-container');
                 const toast = document.createElement('div');
                 toast.className = 'toast';
                 toast.innerHTML = `<i class="${iconClass}"></i> ${message}`;
                 
-                toastContainer.prepend(toast); // Agregar al principio para apilarse
+                toastContainer.prepend(toast); 
 
-                // Muestra el toast
-                setTimeout(() => {
-                    toast.classList.add('show');
-                }, 10); 
+                setTimeout(() => { toast.classList.add('show'); }, 10); 
 
-                // Oculta y remueve el toast
                 setTimeout(() => {
                     toast.classList.remove('show');
-                    setTimeout(() => {
-                        toast.remove();
-                    }, 300); 
+                    setTimeout(() => { toast.remove(); }, 300); 
                 }, duration);
             }
+
+            // Función para mostrar un Toast de carga que NO se OCULTA automáticamente
+            function showLoadingToast(message) {
+                if (currentToastElement) hideToast(currentToastElement); 
+                
+                const toastContainer = document.getElementById('toast-container');
+                const toast = document.createElement('div');
+                toast.className = 'toast loading-toast';
+                toast.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${message}`;
+                
+                toastContainer.prepend(toast);
+                currentToastElement = toast;
+
+                setTimeout(() => { toast.classList.add('show'); }, 10); 
+                return toast; // Retorna el elemento para control manual
+            }
+
+            // Función para ocultar un Toast manualmente
+            function hideToast(toastElement) {
+                if (toastElement) {
+                    toastElement.classList.remove('show');
+                    setTimeout(() => { 
+                        toastElement.remove(); 
+                        if (toastElement === currentToastElement) {
+                            currentToastElement = null;
+                        }
+                    }, 300);
+                }
+            }
+            // =========================================================================
+            // FIN LÓGICA DE TOASTS MODIFICADA
+            // =========================================================================
 
             function validateTemperature(value) {
                 const num = parseFloat(value);
@@ -791,184 +824,199 @@
                     return;
                 }
 
-                showToast('Generando PDF... por favor espere.', 'fas fa-spinner fa-spin', 5000);
+                // PASO 1: Muestra el toast de carga.
+                const loadingToast = showLoadingToast('Generando PDF... por favor espere.');
 
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF('p', 'mm', 'a4'); 
-                const marginX = 15;
-                const pageHeight = doc.internal.pageSize.height;
+                // Usamos un pequeño delay para que el toast se muestre antes de bloquear el hilo con la generación del PDF.
+                setTimeout(() => { 
+                    try {
+                        const { jsPDF } = window.jspdf;
+                        const doc = new jsPDF('p', 'mm', 'a4'); 
+                        const marginX = 15;
+                        const pageHeight = doc.internal.pageSize.height;
 
-                const vespertinoNombre = vespertinoNombreInput.value.trim();
-                const nocturnoNombre = nocturnoNombreInput.value.trim();
-                
-                const reviewDateValue = reviewDateInput.value;
-                let formattedReviewDate = 'N/A';
-                if (reviewDateValue) {
-                    const [y, m, d] = reviewDateValue.split('-');
-                    formattedReviewDate = `${d}/${m}/${y}`;
-                } else {
-                    const today = new Date();
-                    formattedReviewDate = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
-                }
-
-                // --- 1. FUNCIÓN PARA AGREGAR EL ENCABEZADO Y PIE DE PÁGINA (SOLO EN PÁGINA 1) ---
-                const addHeaderAndFooter = (doc, title) => {
-                    let yPos = 15; // Posición inicial (margen superior)
-                    
-                    // Header Completo - SOLO SE DIBUJA EN LA PRIMERA PÁGINA (Página 1)
-                    if (doc.internal.getNumberOfPages() === 1) {
-                        doc.setFontSize(16).setFont('helvetica', 'bold');
-                        doc.text("GRUPO RIBA SMITH", doc.internal.pageSize.width / 2, yPos, { align: 'center' });
-                        yPos += 6;
-                        doc.setFontSize(12).setFont('helvetica', 'normal');
-                        doc.text("R/S CHITRÉ SELECTO", doc.internal.pageSize.width / 2, yPos, { align: 'center' });
-                        yPos += 5;
-                        doc.setFontSize(12).setFont('helvetica', 'bold');
-                        doc.text(title, doc.internal.pageSize.width / 2, yPos, { align: 'center' });
-                        yPos += 8; // Espacio después del título de sección
-
-                        // Detalles (Fecha y Nombres)
-                        doc.setFontSize(8).setFont('helvetica', 'normal');
-                        doc.text(`Fecha de Revisión: ${formattedReviewDate}`, marginX, yPos);
-                        doc.text(`Revisión Vespertina: ${vespertinoNombre || "________________"}`, doc.internal.pageSize.width / 2, yPos, { align: 'center' });
-                        doc.text(`Revisión Nocturna: ${nocturnoNombre || "________________"}`, doc.internal.pageSize.width - marginX, yPos, { align: 'right' });
+                        const vespertinoNombre = vespertinoNombreInput.value.trim();
+                        const nocturnoNombre = nocturnoNombreInput.value.trim();
                         
-                        yPos += 5; // Espacio después de los detalles
-                    }
-                    
-                    // Número de Página y Pie de Página - Se dibujan en TODAS las páginas
-                    doc.setFontSize(8).setFont('helvetica', 'normal');
-                    doc.text(`Página ${doc.internal.getNumberOfPages()}`, doc.internal.pageSize.width - marginX, 10, { align: 'right' }); 
-                    
-                    const footerText = 'Powered by Rafael Ramos';
-                    doc.text(footerText, doc.internal.pageSize.width / 2, pageHeight - 5, { align: 'center' });
-                    
-                    // Retorna la posición Y donde debe comenzar el contenido.
-                    // 15mm es el margen superior.
-                    return (doc.internal.getNumberOfPages() === 1) ? yPos : 15;
-                };
+                        const reviewDateValue = reviewDateInput.value;
+                        let formattedReviewDate = 'N/A';
+                        if (reviewDateValue) {
+                            const [y, m, d] = reviewDateValue.split('-');
+                            formattedReviewDate = `${d}/${m}/${y}`;
+                        } else {
+                            const today = new Date();
+                            formattedReviewDate = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
+                        }
 
-                // --- 2. GENERAR TABLA DE TEMPERATURAS ---
-                if (dataTemperaturas.length) {
-                    let currentY = addHeaderAndFooter(doc, "REPORTE DE TEMPERATURAS");
-                    
-                    const tempHeaders = [
-                        { header: 'TEMP', dataKey: 'temp' },
-                        { header: 'NEVERAS', dataKey: 'nevera' },
-                        { header: '22:00', dataKey: 't2200' },
-                        { header: '00:00', dataKey: 't0000' },
-                        { header: '02:00', dataKey: 't0200' },
-                        { header: '04:00', dataKey: 't0400' },
-                    ];
-                    
-                    const tempBody = dataTemperaturas.map(d => [
-                        d.temp || '', d.nevera || '', d.t2200 || '', d.t0000 || '', d.t0200 || '', d.t0400 || ''
-                    ]);
+                        // El título unificado y solicitado por el usuario.
+                        const PDF_MAIN_TITLE = "REVISIÓN DE INSTALACIONES Y TEMPERATURAS DE NEVERAS";
 
-                    doc.autoTable({
-                        startY: currentY,
-                        head: [tempHeaders.map(h => h.header)],
-                        body: tempBody,
-                        theme: 'grid',
-                        styles: { fontSize: 8, cellPadding: 2, halign: 'center' },
-                        headStyles: { fillColor: [240, 240, 240], textColor: [17, 17, 17], fontStyle: 'bold' },
-                        columnStyles: {
-                            0: { cellWidth: 15 }, // TEMP
-                            1: { cellWidth: 60, halign: 'left' }, // NEVERAS
-                            2: { cellWidth: 25 }, // 22:00
-                            3: { cellWidth: 25 }, // 00:00
-                            4: { cellWidth: 25 }, // 02:00
-                            5: { cellWidth: 25 }, // 04:00
-                        },
-                        margin: { left: marginX, right: marginX, top: 15, bottom: 15 }, // Margen constante para páginas de continuación
-                        
-                        didDrawPage: (data) => {
-                            // Pie de página (se repite en todas las páginas generadas por autoTable)
+                        // --- 1. FUNCIÓN PARA AGREGAR EL ENCABEZADO Y PIE DE PÁGINA (SOLO EN PÁGINA 1) ---
+                        const addHeaderAndFooter = (doc, sectionTitle) => {
+                            let yPos = 15; // Posición inicial (margen superior)
+                            
+                            // Header Completo - SOLO SE DIBUJA EN LA PRIMERA PÁGINA (Página 1 de 2, etc.)
+                            if (doc.internal.getNumberOfPages() === 1) {
+                                doc.setFontSize(16).setFont('helvetica', 'bold');
+                                doc.text("GRUPO RIBA SMITH", doc.internal.pageSize.width / 2, yPos, { align: 'center' });
+                                yPos += 6;
+                                doc.setFontSize(12).setFont('helvetica', 'normal');
+                                doc.text("R/S CHITRÉ SELECTO", doc.internal.pageSize.width / 2, yPos, { align: 'center' });
+                                yPos += 5;
+                                
+                                // Título principal unificado
+                                doc.setFontSize(12).setFont('helvetica', 'bold');
+                                // Dividir el título largo para centrarlo y que quepa
+                                const titleLines = doc.splitTextToSize(PDF_MAIN_TITLE, doc.internal.pageSize.width - marginX * 2);
+                                doc.text(titleLines, doc.internal.pageSize.width / 2, yPos, { align: 'center' });
+                                yPos += (titleLines.length * 5) + 3; // +3 para el espaciado
+                                
+                                // Separador de sección
+                                doc.setFontSize(10).setFont('helvetica', 'bold');
+                                doc.text(`--- ${sectionTitle.toUpperCase()} ---`, doc.internal.pageSize.width / 2, yPos, { align: 'center' });
+                                yPos += 8; // Espacio después del título de sección
+
+                                // Detalles (Fecha y Nombres)
+                                doc.setFontSize(8).setFont('helvetica', 'normal');
+                                doc.text(`Fecha de Revisión: ${formattedReviewDate}`, marginX, yPos);
+                                doc.text(`Revisión Vespertina: ${vespertinoNombre || "________________"}`, doc.internal.pageSize.width / 2, yPos, { align: 'center' });
+                                doc.text(`Revisión Nocturna: ${nocturnoNombre || "________________"}`, doc.internal.pageSize.width - marginX, yPos, { align: 'right' });
+                                
+                                yPos += 5; // Espacio después de los detalles
+                            }
+                            
+                            // Número de Página y Pie de Página - Se dibujan en TODAS las páginas
                             doc.setFontSize(8).setFont('helvetica', 'normal');
+                            doc.text(`Página ${doc.internal.getNumberOfPages()}`, doc.internal.pageSize.width - marginX, 10, { align: 'right' }); 
+                            
                             const footerText = 'Powered by Rafael Ramos';
                             doc.text(footerText, doc.internal.pageSize.width / 2, pageHeight - 5, { align: 'center' });
                             
-                            // Si es una página de continuación (página 2, 3, etc. del autoTable)
-                            if (data.pageNumber > 1) { 
-                                // Dibujar el número de página en la esquina superior derecha
-                                doc.text(`Página ${doc.internal.getNumberOfPages()}`, doc.internal.pageSize.width - marginX, 10, { align: 'right' }); 
-                                
-                                // ** LO IMPORTANTE: NO LLAMAMOS A addHeaderAndFooter aquí. **
-                                // Forzar el cursor Y a 15mm (margen superior), permitiendo que la tabla continúe
-                                data.cursor.y = 15;
-                            }
-                        }
-                    });
-                }
+                            // Retorna la posición Y donde debe comenzar el contenido.
+                            return (doc.internal.getNumberOfPages() === 1) ? yPos : 15;
+                        };
 
-
-                // --- 3. GENERAR TABLA DE REVISIONES ---
-                if (dataRevisiones.length) {
-                    // Si ya hay páginas, añade una nueva.
-                    if (doc.internal.getNumberOfPages() > 1 || dataTemperaturas.length > 0) {
-                         doc.addPage();
-                    }
-                    
-                    // Obtenemos el Y de inicio. Si es la primera página del documento, dibuja encabezado completo.
-                    let currentY = addHeaderAndFooter(doc, "REPORTE DE REVISIONES");
-                    
-                    const revHeaders = [
-                        { header: 'PUERTAS Y/O ÁREAS', dataKey: 'area' },
-                        { header: 'REV. N°1', dataKey: 'rev1' },
-                        { header: 'OBSERVACIÓN', dataKey: 'obs1' },
-                        { header: 'REV. N°2', dataKey: 'rev2' },
-                        { header: 'OBSERVACIÓN', dataKey: 'obs2' },
-                        { header: 'REV. N°3', dataKey: 'rev3' },
-                        { header: 'OBSERVACIÓN', dataKey: 'obs3' },
-                    ];
-                    
-                    const revBody = dataRevisiones.map(d => [
-                        d.area || '', d.rev1 || '', d.obs1 || '', d.rev2 || '', d.obs2 || '', d.rev3 || '', d.obs3 || ''
-                    ]);
-                    
-                    let revPageCount = 0; 
-                    
-                    doc.autoTable({
-                        startY: currentY,
-                        head: [revHeaders.map(h => h.header)],
-                        body: revBody,
-                        theme: 'grid',
-                        styles: { fontSize: 8, cellPadding: 2, halign: 'center' },
-                        headStyles: { fillColor: [240, 240, 240], textColor: [17, 17, 17], fontStyle: 'bold' },
-                        columnStyles: {
-                            0: { cellWidth: 45, halign: 'left' }, 
-                            1: { cellWidth: 15 }, 
-                            2: { cellWidth: 35 }, 
-                            3: { cellWidth: 15 }, 
-                            4: { cellWidth: 35 }, 
-                            5: { cellWidth: 15 }, 
-                            6: { cellWidth: 35 }, 
-                        },
-                        margin: { left: marginX, right: marginX, top: 15, bottom: 15 },
-                        
-                        didDrawPage: (data) => {
-                            revPageCount++; 
-                            // Pie de página (se repite en todas las páginas generadas por autoTable)
-                            doc.setFontSize(8).setFont('helvetica', 'normal');
-                            const footerText = 'Powered by Rafael Ramos';
-                            doc.text(footerText, doc.internal.pageSize.width / 2, pageHeight - 5, { align: 'center' });
+                        // --- 2. GENERAR TABLA DE TEMPERATURAS ---
+                        if (dataTemperaturas.length) {
+                            let currentY = addHeaderAndFooter(doc, "TEMPERATURAS");
                             
-                            // Si es una página de continuación (página 2, 3, etc. del autoTable)
-                            if (revPageCount > 1) {
-                                // Dibujar el número de página en la esquina superior derecha
-                                doc.text(`Página ${doc.internal.getNumberOfPages()}`, doc.internal.pageSize.width - marginX, 10, { align: 'right' }); 
+                            const tempHeaders = [
+                                { header: 'TEMP', dataKey: 'temp' },
+                                { header: 'NEVERAS', dataKey: 'nevera' },
+                                { header: '22:00', dataKey: 't2200' },
+                                { header: '00:00', dataKey: 't0000' },
+                                { header: '02:00', dataKey: 't0200' },
+                                { header: '04:00', dataKey: 't0400' },
+                            ];
+                            
+                            const tempBody = dataTemperaturas.map(d => [
+                                d.temp || '', d.nevera || '', d.t2200 || '', d.t0000 || '', d.t0200 || '', d.t0400 || ''
+                            ]);
+
+                            doc.autoTable({
+                                startY: currentY,
+                                head: [tempHeaders.map(h => h.header)],
+                                body: tempBody,
+                                theme: 'grid',
+                                styles: { fontSize: 8, cellPadding: 2, halign: 'center' },
+                                headStyles: { fillColor: [44, 62, 80], textColor: [255, 255, 255], fontStyle: 'bold' },
+                                columnStyles: {
+                                    0: { cellWidth: 15 }, // TEMP
+                                    1: { cellWidth: 60, halign: 'left' }, // NEVERAS
+                                    2: { cellWidth: 25 }, // 22:00
+                                    3: { cellWidth: 25 }, // 00:00
+                                    4: { cellWidth: 25 }, // 02:00
+                                    5: { cellWidth: 25 }, // 04:00
+                                },
+                                margin: { left: marginX, right: marginX, top: 15, bottom: 15 }, 
                                 
-                                // ** LO IMPORTANTE: NO LLAMAMOS A addHeaderAndFooter aquí. **
-                                // Forzar el cursor Y a 15mm (margen superior), permitiendo que la tabla continúe
-                                data.cursor.y = 15; 
-                            }
+                                didDrawPage: (data) => {
+                                    // Pie de página (se repite en todas las páginas generadas por autoTable)
+                                    doc.setFontSize(8).setFont('helvetica', 'normal');
+                                    const footerText = 'Powered by Rafael Ramos';
+                                    doc.text(footerText, doc.internal.pageSize.width / 2, pageHeight - 5, { align: 'center' });
+                                    
+                                    if (data.pageNumber > 1) { 
+                                        doc.text(`Página ${doc.internal.getNumberOfPages()}`, doc.internal.pageSize.width - marginX, 10, { align: 'right' }); 
+                                        data.cursor.y = 15;
+                                    }
+                                }
+                            });
                         }
-                    });
-                }
-                
-                // 4. Finalizar y descargar
-                doc.save(`Reporte_RS_Chitre_${formattedReviewDate.replace(/\//g, '-')}.pdf`);
-                showToast('¡PDF guardado con éxito!', 'fas fa-check-circle', 4000);
+
+
+                        // --- 3. GENERAR TABLA DE REVISIONES ---
+                        if (dataRevisiones.length) {
+                            if (doc.internal.getNumberOfPages() > 1 || dataTemperaturas.length > 0) {
+                                 doc.addPage();
+                                 
+                                 // Volvemos a dibujar el encabezado completo en la nueva primera página
+                                 let currentY = addHeaderAndFooter(doc, "REVISIONES");
+                            } else {
+                                // Si es solo la tabla de revisiones y es la primera página del PDF
+                                let currentY = addHeaderAndFooter(doc, "REVISIONES");
+                            }
+                            
+                            const revHeaders = [
+                                { header: 'PUERTAS Y/O ÁREAS', dataKey: 'area' },
+                                { header: 'REV. N°1', dataKey: 'rev1' },
+                                { header: 'OBSERVACIÓN', dataKey: 'obs1' },
+                                { header: 'REV. N°2', dataKey: 'rev2' },
+                                { header: 'OBSERVACIÓN', dataKey: 'obs2' },
+                                { header: 'REV. N°3', dataKey: 'rev3' },
+                                { header: 'OBSERVACIÓN', dataKey: 'obs3' },
+                            ];
+                            
+                            const revBody = dataRevisiones.map(d => [
+                                d.area || '', d.rev1 || '', d.obs1 || '', d.rev2 || '', d.obs2 || '', d.rev3 || '', d.obs3 || ''
+                            ]);
+                            
+                            let revPageCount = 0; 
+                            
+                            doc.autoTable({
+                                startY: doc.autoTable.previous.finalY > 0 ? doc.autoTable.previous.finalY + 5 : 20, // Continúa desde la última tabla, o inicia si solo hay una tabla.
+                                head: [revHeaders.map(h => h.header)],
+                                body: revBody,
+                                theme: 'grid',
+                                styles: { fontSize: 8, cellPadding: 2, halign: 'center' },
+                                headStyles: { fillColor: [44, 62, 80], textColor: [255, 255, 255], fontStyle: 'bold' },
+                                columnStyles: {
+                                    0: { cellWidth: 45, halign: 'left' }, 
+                                    1: { cellWidth: 15 }, 
+                                    2: { cellWidth: 35 }, 
+                                    3: { cellWidth: 15 }, 
+                                    4: { cellWidth: 35 }, 
+                                    5: { cellWidth: 15 }, 
+                                    6: { cellWidth: 35 }, 
+                                },
+                                margin: { left: marginX, right: marginX, top: 15, bottom: 15 },
+                                
+                                didDrawPage: (data) => {
+                                    revPageCount++; 
+                                    doc.setFontSize(8).setFont('helvetica', 'normal');
+                                    const footerText = 'Powered by Rafael Ramos';
+                                    doc.text(footerText, doc.internal.pageSize.width / 2, pageHeight - 5, { align: 'center' });
+                                    
+                                    if (revPageCount > 1) {
+                                        doc.text(`Página ${doc.internal.getNumberOfPages()}`, doc.internal.pageSize.width - marginX, 10, { align: 'right' }); 
+                                        data.cursor.y = 15; 
+                                    }
+                                }
+                            });
+                        }
+                        
+                        // PASO 3: Finalizar y descargar
+                        doc.save(`Revision-y-Temperatura${formattedReviewDate.replace(/\//g, '-')}.pdf`);
+
+                        // PASO 4: Oculta el toast de carga y muestra el de éxito
+                        hideToast(loadingToast);
+                        showToast('¡PDF guardado con éxito!', 'fas fa-check-circle', 4000);
+                    } catch (e) {
+                        console.error("Error al generar el PDF:", e);
+                        hideToast(loadingToast);
+                        showToast('Error al generar el PDF. Revise la consola.', 'fas fa-times-circle', 5000);
+                    }
+                }, 100); // 100ms de delay
             };
             // ******************************************************************
             // ************ FIN DE FUNCIÓN CON jsPDF.autoTable() ****************
