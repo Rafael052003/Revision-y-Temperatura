@@ -20,7 +20,7 @@
             --border-color: #e0e6ea; /* Subtle Border */
             --success-color: #2ecc71;
             --warning-color: #f39c12;
-            --danger-color: #e74c3c;
+            --danger-color: #e74c4c;
             --font-main: 'Poppins', sans-serif;
         }
 
@@ -64,8 +64,6 @@
             .header-row label { font-size: 12px; }
             .header-row input { font-size: 14px; padding: 10px 12px; }
             .hamburger-menu { top: 20px; left: 20px; font-size: 24px; display: block; }
-            
-            /* Splash Screen Title Adjustment for mobile */
             #splash h2 { font-size: 18px; }
         }
         
@@ -257,9 +255,6 @@
             background-color: var(--bg-light);
             box-shadow: inset 0 0 0 2px var(--accent-color);
         }
-        /* New style for valid/invalid input */
-        td.editable-input.valid input { border-color: var(--success-color); }
-        td.editable-input.invalid input { border-color: var(--danger-color); }
 
         .main-table tbody tr:hover { background-color: #f5f8fb; }
         .main-table tbody tr:last-child td { border-bottom: none; }
@@ -365,6 +360,32 @@
         .toast.show {
             opacity: 1;
             transform: translateY(0);
+        }
+
+        /* ESTILO PARA EL BOTÓN FLOTANTE DEF */
+        #btnDefrost {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            background-color: var(--warning-color); /* Color visible para advertencia/acción especial */
+            color: var(--primary-color);
+            font-weight: 700;
+            font-size: 16px;
+            padding: 15px 20px;
+            border-radius: 50px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+            border: none;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: transform 0.2s, background-color 0.2s;
+        }
+        #btnDefrost:hover {
+            background-color: #e67e22; /* Tono más oscuro */
+            transform: scale(1.05);
+        }
+        #btnDefrost:active {
+            transform: scale(0.95);
         }
     </style>
 </head>
@@ -518,11 +539,17 @@
             <a href="#" id="openPrivacyModal">Política de Privacidad</a>
         </p>
     </footer>
+    
+    <button id="btnDefrost" class="action-btn" style="display: none;">DEF</button>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
     <script>
+        // *** COMENTARIO SOBRE ERROR DEL SERVICE WORKER (PWA) ***
+        // Este bloque maneja el registro del Service Worker.
+        // El error 'The URL protocol of the current origin ('null') is not supported.'
+        // ocurre si se abre el archivo con 'file://'. La solución es ejecutarlo en un servidor (localhost/https).
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('service-worker.js')
@@ -531,6 +558,7 @@
                     })
                     .catch(error => {
                         console.log('Fallo en el registro de Service Worker:', error);
+                        // El catch asegura que el error no detenga la ejecución del resto del script.
                     });
             });
         }
@@ -544,10 +572,12 @@
             
             let dataTemperaturas = JSON.parse(localStorage.getItem(STORAGE_KEY_TEMPERATURAS));
             let dataRevisiones = JSON.parse(localStorage.getItem(STORAGE_KEY_REVISIONES));
+            let activeInput = null; // Variable para rastrear el campo de entrada activo
 
             const reviewDateInput = document.getElementById('review-date');
             const vespertinoNombreInput = document.getElementById('vespertino-nombre'); 
             const nocturnoNombreInput = document.getElementById('nocturno-nombre'); 
+            const btnDefrost = document.getElementById('btnDefrost'); // Referencia al botón DEF
 
             const initialTemperaturesData = [
                 { temp: '-20°', nevera: 'NEVERA DE HIELOS' }, { temp: '-23°', nevera: 'HELADERIA 1' },
@@ -617,7 +647,7 @@
             }
 
             // =========================================================================
-            // LÓGICA DE TOASTS MODIFICADA (Mantenida del paso anterior)
+            // LÓGICA DE TOASTS
             // =========================================================================
             let currentToastElement = null;
 
@@ -664,7 +694,7 @@
                 }
             }
             // =========================================================================
-            // FIN LÓGICA DE TOASTS MODIFICADA
+            // FIN LÓGICA DE TOASTS
             // =========================================================================
 
             function validateTemperature(value) {
@@ -685,12 +715,14 @@
                     tableContainer = temperaturasTableContainer;
                     title = 'REVISIÓN DE TEMPERATURAS';
                     revisionesTableContainer.style.display = 'none';
+                    btnDefrost.style.display = 'block'; // Mostrar el botón DEF
                 } else {
                     dataToRender = dataRevisiones;
                     tbody = document.getElementById('revisiones-tbody');
                     tableContainer = revisionesTableContainer;
                     title = 'REVISIÓN DE INSTALACIONES';
                     temperaturasTableContainer.style.display = 'none';
+                    btnDefrost.style.display = 'none'; // Ocultar el botón DEF
                 }
 
                 mainTitle.textContent = title;
@@ -708,22 +740,33 @@
                         tr.innerHTML = `
                             <td data-field="temp">${item.temp || ''}</td>
                             <td class="left product-sensitive">${item.nevera || ''}</td>
-                            <td class="editable-input"><input type="text" inputmode="numeric" data-field="t2200" value="${item.t2200 || ''}"></td>
-                            <td class="editable-input"><input type="text" inputmode="numeric" data-field="t0000" value="${item.t0000 || ''}"></td>
-                            <td class="editable-input"><input type="text" inputmode="numeric" data-field="t0200" value="${item.t0200 || ''}"></td>
-                            <td class="editable-input"><input type="text" inputmode="numeric" data-field="t0400" value="${item.t0400 || ''}"></td>
+                            <td class="editable-input"><input type="text" inputmode="numeric" data-field="t2200" data-row="${index}" value="${item.t2200 || ''}"></td>
+                            <td class="editable-input"><input type="text" inputmode="numeric" data-field="t0000" data-row="${index}" value="${item.t0000 || ''}"></td>
+                            <td class="editable-input"><input type="text" inputmode="numeric" data-field="t0200" data-row="${index}" value="${item.t0200 || ''}"></td>
+                            <td class="editable-input"><input type="text" inputmode="numeric" data-field="t0400" data-row="${index}" value="${item.t0400 || ''}"></td>
                         `;
                         tr.querySelectorAll('td.editable-input input').forEach(input => {
                             const parentCell = input.closest('td');
                             
+                            // Rastrea el campo activo
+                            input.addEventListener('focus', () => {
+                                activeInput = input;
+                            });
+                            input.addEventListener('blur', () => {
+                                // Desenfocar solo si no se va a usar inmediatamente el botón DEF
+                                if (activeInput === input && !btnDefrost.matches(':hover')) {
+                                     activeInput = null;
+                                }
+                            });
+                            
                             function handleInput() {
                                 const value = input.value.trim();
-                                const isValid = value === '' || validateTemperature(value);
-                                if (isValid) {
-                                    parentCell.classList.remove('invalid');
-                                } else {
-                                    parentCell.classList.add('invalid');
-                                }
+                                
+                                // Lógica para aceptar "DEF"
+                                const isDefrost = value.toUpperCase() === 'DEF';
+                                
+                                const isValid = value === '' || isDefrost || validateTemperature(value);
+                                
                                 const field = input.dataset.field;
                                 dataToRender[index][field] = value;
                                 saveAndNotify();
@@ -767,6 +810,21 @@
                     chipsEl.appendChild(b);
                 });
             }
+
+            // LÓGICA DEL BOTÓN DEFROST (DEF)
+            btnDefrost.addEventListener('click', () => {
+                if (activeInput) {
+                    activeInput.value = 'DEF';
+                    // Dispara manualmente el evento input para guardar y validar 
+                    activeInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    // Para que el foco se pierda después de usar el botón flotante:
+                    activeInput.blur(); 
+                    activeInput = null;
+                } else {
+                    showToast('Toque una celda de temperatura primero.', 'fas fa-info-circle', 2000);
+                }
+            });
+
 
             btnClear.onclick = () => {
                 clearModal.style.display = 'flex';
@@ -887,7 +945,7 @@
                             return (doc.internal.getNumberOfPages() === 1) ? yPos : 15;
                         };
 
-                        // --- 2. GENERAR TABLA DE TEMPERATURAS (AJUSTADA PARA CENTRADO) ---
+                        // --- 2. GENERAR TABLA DE TEMPERATURAS (AJUSTADA) ---
                         if (dataTemperaturas.length) {
                             let currentY = addHeaderAndFooter(doc);
                             
@@ -912,15 +970,14 @@
                                 styles: { fontSize: 8, cellPadding: 2, halign: 'center' },
                                 headStyles: { fillColor: [44, 62, 80], textColor: [255, 255, 255], fontStyle: 'bold' },
                                 columnStyles: {
-                                    0: { cellWidth: 15 }, // TEMP
-                                    1: { cellWidth: 60, halign: 'left' }, // NEVERAS
-                                    2: { cellWidth: 25 }, // 22:00
-                                    3: { cellWidth: 25 }, // 00:00
-                                    4: { cellWidth: 25 }, // 02:00
-                                    5: { cellWidth: 25 }, // 04:00
+                                    0: { cellWidth: 15 }, 
+                                    1: { cellWidth: 60, halign: 'left' }, 
+                                    2: { cellWidth: 25 }, 
+                                    3: { cellWidth: 25 }, 
+                                    4: { cellWidth: 25 }, 
+                                    5: { cellWidth: 25 }, 
                                 },
-                                // *** CAMBIOS PARA CENTRADO DE TABLA DE TEMPERATURAS ***
-                                tableWidth: 'wrap', // Permite que autoTable calcule el ancho de la tabla en base al contenido
+                                tableWidth: 'wrap', 
                                 margin: { left: marginX, right: marginX, top: 15, bottom: 15 }, 
                                 
                                 didDrawPage: (data) => {
@@ -936,8 +993,9 @@
                             });
                         }
 
-                        // --- 3. GENERAR TABLA DE REVISIONES (AJUSTADA PARA CENTRADO) ---
+                        // --- 3. GENERAR TABLA DE REVISIONES (AJUSTADA Y CORREGIDA) ---
                         if (dataRevisiones.length) {
+                            // Añadir página si ya se generó la de temperaturas o si no hay temperaturas.
                             if (doc.internal.getNumberOfPages() > 1 || dataTemperaturas.length > 0) {
                                  doc.addPage();
                                  let currentY = addHeaderAndFooter(doc); 
@@ -968,17 +1026,17 @@
                                 theme: 'grid',
                                 styles: { fontSize: 8, cellPadding: 2, halign: 'center' },
                                 headStyles: { fillColor: [44, 62, 80], textColor: [255, 255, 255], fontStyle: 'bold' },
+                                // *** AJUSTES EN EL ANCHO DE COLUMNA PARA EVITAR EL ERROR '5 units width could not fit page' ***
                                 columnStyles: {
-                                    0: { cellWidth: 45, halign: 'left' }, 
-                                    1: { cellWidth: 15 }, 
-                                    2: { cellWidth: 35 }, 
-                                    3: { cellWidth: 15 }, 
-                                    4: { cellWidth: 35 }, 
-                                    5: { cellWidth: 15 }, 
-                                    6: { cellWidth: 35 }, 
+                                    0: { cellWidth: 40, halign: 'left' }, 
+                                    1: { cellWidth: 14 }, 
+                                    2: { cellWidth: 32 }, 
+                                    3: { cellWidth: 14 }, 
+                                    4: { cellWidth: 32 }, 
+                                    5: { cellWidth: 14 }, 
+                                    6: { cellWidth: 32 }, 
                                 },
-                                // *** CAMBIOS PARA CENTRADO DE TABLA DE REVISIONES ***
-                                tableWidth: 'wrap', // Permite que autoTable calcule el ancho de la tabla en base al contenido
+                                tableWidth: 'wrap', 
                                 margin: { left: marginX, right: marginX, top: 15, bottom: 15 },
                                 
                                 didDrawPage: (data) => {
@@ -1027,8 +1085,11 @@
             }
 
             window.addEventListener("load", () => {
+                // Esconde la pantalla de inicio
                 setTimeout(() => { document.getElementById("splash").style.opacity = "0"; }, 1500);
                 setTimeout(() => { document.getElementById("splash").style.display = "none"; }, 2000);
+                
+                // Carga la fecha y los nombres guardados
                 if (!reviewDateInput.value) {
                     reviewDateInput.value = getTodayDateFormattedForInput();
                 }
@@ -1040,6 +1101,7 @@
                 if (nocturnoNombreGuardado) {
                     nocturnoNombreInput.value = nocturnoNombreGuardado;
                 }
+                
                 render();
 
                 vespertinoNombreInput.addEventListener('input', saveAndNotify);
