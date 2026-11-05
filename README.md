@@ -1,2 +1,2 @@
 # Chitré Selecto PWA
-Aplicación instalable de Riba Smith - Chitré Selecto.
+Aplicación instalable de Chitré Selecto.
